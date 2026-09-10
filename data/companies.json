@@ -1,0 +1,6 @@
+[
+  { "slug": "stripe", "name": "Stripe", "ats": "greenhouse" },
+  { "slug": "airbnb", "name": "Airbnb", "ats": "greenhouse" },
+  { "slug": "netflix", "name": "Netflix", "ats": "lever" },
+  { "slug": "rippling", "name": "Rippling", "ats": "ashby" }
+]

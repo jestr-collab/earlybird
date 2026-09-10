@@ -1,0 +1,19 @@
+{
+  "name": "earlybird",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Surfaces internship postings from company career pages within hours of posting.",
+  "type": "module",
+  "scripts": {
+    "fetch": "tsx src/run.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3",
+    "@types/node": "^22.7.4"
+  }
+}
