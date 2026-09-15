@@ -7,6 +7,7 @@
   "scripts": {
     "fetch": "tsx src/run.ts",
     "fetch:db": "tsx src/run-db.ts",
+    "fetch:db:prod": "npm run fetch:db && node -e \"const url=process.env.CLOUDFLARE_DEPLOY_HOOK; if(!url){console.log('[deploy-hook] CLOUDFLARE_DEPLOY_HOOK not set, skipping site rebuild'); process.exit(0);} fetch(url,{method:'POST'}).then(r=>{console.log('[deploy-hook] Cloudflare Pages rebuild triggered:',r.status); if(!r.ok) process.exit(1);}).catch(e=>{console.error('[deploy-hook] failed:',e); process.exit(1);})\"",
     "find-slug": "tsx src/find-slug.ts",
     "discover": "tsx src/discover.ts",
     "discover-trackers": "tsx src/discover-trackers.ts",

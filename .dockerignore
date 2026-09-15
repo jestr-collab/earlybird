@@ -1,0 +1,11 @@
+node_modules
+public
+data/seen.json
+data/discovered.json
+.env
+.git
+.DS_Store
+fetch.log
+launchd.err.log
+launchd.out.log
+*.log
