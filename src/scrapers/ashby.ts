@@ -1,10 +1,11 @@
 import type { Company, RawPosting } from "../types.js";
+import { fetchWithTimeout } from "../fetchWithTimeout.js";
 
 // Public Ashby job board API. No auth needed.
 // https://api.ashbyhq.com/posting-api/job-board/{slug}
 export async function fetchAshby(company: Company): Promise<RawPosting[]> {
   const url = `https://api.ashbyhq.com/posting-api/job-board/${company.slug}`;
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(url);
   if (!res.ok) {
     throw new Error(`Ashby fetch failed for ${company.slug}: ${res.status}`);
   }

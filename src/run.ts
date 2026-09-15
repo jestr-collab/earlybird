@@ -4,7 +4,11 @@ import type { Company, RawPosting, SeenRecord } from "./types.js";
 import { fetchGreenhouse } from "./scrapers/greenhouse.js";
 import { fetchLever } from "./scrapers/lever.js";
 import { fetchAshby } from "./scrapers/ashby.js";
+import { fetchWorkday } from "./scrapers/workday.js";
+import { fetchSmartRecruiters } from "./scrapers/smartrecruiters.js";
 import { classify } from "./classify.js";
+import { categorize } from "./categorize.js";
+import { isUSLocation } from "./location.js";
 
 const COMPANIES_PATH = new URL("../data/companies.json", import.meta.url);
 const SEEN_PATH = new URL("../data/seen.json", import.meta.url);
@@ -36,6 +40,10 @@ async function fetchCompany(company: Company): Promise<RawPosting[]> {
       return fetchLever(company);
     case "ashby":
       return fetchAshby(company);
+    case "workday":
+      return fetchWorkday(company);
+    case "smartrecruiters":
+      return fetchSmartRecruiters(company);
   }
 }
 
@@ -45,27 +53,42 @@ async function main() {
   const now = new Date().toISOString();
 
   let newInternshipCount = 0;
+  let newEntryLevelCount = 0;
+  let droppedNonUSCount = 0;
 
-  for (const company of companies) {
+  for (const [i, company] of companies.entries()) {
+    console.log(`[${i + 1}/${companies.length}] ${company.name}...`);
+
     let postings: RawPosting[];
     try {
       postings = await fetchCompany(company);
     } catch (err) {
-      console.error(`[${company.name}] fetch error:`, (err as Error).message);
+      console.error(`  [${company.name}] fetch error:`, (err as Error).message);
       continue;
     }
 
     for (const posting of postings) {
+      if (!isUSLocation(posting.location)) {
+        droppedNonUSCount++;
+        continue;
+      }
+
       const key = seenKey(posting);
       const isNew = !seen[key];
 
       if (isNew) {
         seen[key] = { firstSeenAt: now };
         const classified = classify(posting);
-        if (classified.isInternship) {
+        const tagged = categorize(classified);
+        if (tagged.isInternship) {
           newInternshipCount++;
           console.log(
-            `NEW INTERNSHIP  [${classified.classifierReason}]  ${classified.company} — ${classified.title}\n  ${classified.url}`
+            `NEW INTERNSHIP  [${tagged.category}/${tagged.classifierReason}]  ${tagged.company} — ${tagged.title}\n  ${tagged.url}`
+          );
+        } else if (tagged.isEntryLevel) {
+          newEntryLevelCount++;
+          console.log(
+            `NEW ENTRY-LEVEL [${tagged.category}/${tagged.entryLevelReason}]  ${tagged.company} — ${tagged.title}\n  ${tagged.url}`
           );
         }
       }
@@ -73,7 +96,9 @@ async function main() {
   }
 
   await saveSeen(seen);
-  console.log(`\nDone. ${newInternshipCount} new internship posting(s) this run.`);
+  console.log(
+    `\nDone. ${newInternshipCount} new internship, ${newEntryLevelCount} new entry-level posting(s) this run (${droppedNonUSCount} non-US postings skipped).`
+  );
 }
 
 main().catch((err) => {

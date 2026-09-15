@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unsubscribe from earlybird alerts</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 420px; margin: 4rem auto; padding: 0 1.5rem; color: #1a1a1a; text-align: center; background: #fbfbfc; }
+  .brand { display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; color: #111; margin-bottom: 2.5rem; }
+  .brand-bird { flex-shrink: 0; display: block; }
+  .card { background: #fff; border: 1px solid #eee; border-radius: 12px; padding: 2rem 1.5rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+  .icon { width: 48px; height: 48px; line-height: 48px; border-radius: 50%; font-size: 1.4rem; margin: 0 auto 1rem; }
+  .icon.ok { background: #e6f7ec; color: #1a7a3f; }
+  .icon.err { background: #fdeceb; color: #b3261e; }
+  h1 { font-size: 1.15rem; margin: 0 0 0.5rem; }
+  p { color: #666; font-size: 0.9rem; line-height: 1.5; margin: 0 0 1.2rem; }
+  button { background: #b3261e; color: #fff; border: none; border-radius: 6px; padding: 0.6rem 1.2rem; font-size: 0.9rem; font-family: inherit; cursor: pointer; }
+  button:disabled { background: #e5b2ae; cursor: default; }
+</style>
+</head>
+<body>
+<div class="brand"><svg class="brand-bird" width="26" height="19" viewBox="0 0 28 20" fill="#06c" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><ellipse cx="13" cy="13" rx="7" ry="5"/><circle cx="20" cy="9" r="3.2"/><polygon points="23,8.3 27,7.3 23,10.3"/><polygon points="6,13 1,9 6,16"/><circle cx="20.6" cy="8.2" r="0.7" fill="#fff"/></svg>earlybird</div>
+<div class="card"><div id="status">
+  <h1>Unsubscribe from alerts?</h1>
+  <p>You'll stop receiving earlybird emails. You can always sign up again later.</p>
+  <button id="unsubBtn">Unsubscribe me</button>
+</div></div>
+<script>
+const SUPABASE_URL = "https://dlonxlehlnazmidzkcuf.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRsb254bGVobG5hem1pZHprY3VmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwNjc0MzEsImV4cCI6MjEwNDY0MzQzMX0.Dsqr8QuiJhEt-BbE85ocCmgjRfUuIpTbG2nNBV2IlIw";
+const statusEl = document.getElementById('status');
+
+function show(icon, title, sub) {
+  statusEl.innerHTML = `<div class="icon ${icon}">${icon === 'ok' ? '✓' : '✕'}</div><h1>${title}</h1><p>${sub}</p>`;
+}
+
+const token = new URLSearchParams(window.location.search).get('token');
+
+document.getElementById('unsubBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('unsubBtn');
+  if (!token) {
+    show('err', 'Missing link', 'This link looks incomplete - copy the full link from your email.');
+    return;
+  }
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !window.supabase) {
+    show('err', 'Something went wrong', 'Unsubscribing isn\'t available right now - try again in a bit.');
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Unsubscribing...';
+  const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { data, error } = await client.rpc('unsubscribe_subscriber', { p_token: token });
+  if (error) {
+    show('err', 'Something went wrong', 'We couldn\'t unsubscribe you - try clicking the link again in a moment.');
+    return;
+  }
+  if (data === true) {
+    show('ok', "You're unsubscribed", "You won't get any more emails from earlybird.");
+  } else {
+    show('ok', "Already unsubscribed", "This link was already used - nothing more to do.");
+  }
+});
+</script>
+</body>
+</html>

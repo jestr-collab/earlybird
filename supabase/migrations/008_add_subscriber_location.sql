@@ -1,0 +1,12 @@
+-- Adds an optional location preference to signups, matching the location
+-- filter added to the listing itself (see build-view.ts). Nullable and
+-- unconstrained - unlike categories (which requires at least 1), a blank
+-- location means "any location", not an invalid signup, so someone who
+-- doesn't care where the role is shouldn't be forced to type something.
+-- Free text, not a fixed list, for the same reason the listing's location
+-- filter is free text: location strings aren't standardized enough across
+-- companies/ATSs for a clean dropdown ("Remote - USA", "New York, NY",
+-- "Hybrid - Austin, TX").
+--
+-- Run this once in the Supabase SQL editor, same as the earlier migrations.
+alter table subscribers add column if not exists location text;

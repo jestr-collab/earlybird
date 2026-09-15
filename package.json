@@ -6,14 +6,36 @@
   "type": "module",
   "scripts": {
     "fetch": "tsx src/run.ts",
+    "fetch:db": "tsx src/run-db.ts",
+    "find-slug": "tsx src/find-slug.ts",
+    "discover": "tsx src/discover.ts",
+    "discover-trackers": "tsx src/discover-trackers.ts",
+    "discover-registry": "tsx src/discover-registry.ts",
+    "discover-interninbox": "tsx src/discover-interninbox.ts",
+    "merge-discovered": "tsx src/merge-discovered.ts",
+    "add-workday": "tsx src/add-workday.ts",
+    "add-workday-batch": "tsx src/add-workday-batch.ts",
+    "view": "tsx src/build-view.ts",
+    "cleanup:non-us": "tsx src/cleanup-non-us.ts",
+    "reclassify": "tsx src/reclassify.ts",
+    "breakdown": "tsx src/breakdown.ts",
+    "quality-check": "tsx src/quality-check.ts",
+    "sample-other": "tsx src/sample-other.ts",
+    "llm-categorize-other": "tsx src/llm-categorize-other.ts",
+    "sample-majors": "tsx src/sample-majors.ts",
+    "test-alert": "tsx src/test-alert.ts",
+    "send-confirmations": "tsx src/send-confirmations.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "dotenv": "^16.4.5"
+    "@supabase/supabase-js": "^2.45.4",
+    "dotenv": "^16.4.5",
+    "playwright": "^1.47.2",
+    "resend": "^6.28.0"
   },
   "devDependencies": {
+    "@types/node": "^22.7.4",
     "tsx": "^4.19.1",
-    "typescript": "^5.6.3",
-    "@types/node": "^22.7.4"
+    "typescript": "^5.6.3"
   }
 }

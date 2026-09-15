@@ -1,10 +1,11 @@
 import type { Company, RawPosting } from "../types.js";
+import { fetchWithTimeout } from "../fetchWithTimeout.js";
 
 // Public Lever postings API. No auth needed.
 // https://api.lever.co/v0/postings/{slug}?mode=json
 export async function fetchLever(company: Company): Promise<RawPosting[]> {
   const url = `https://api.lever.co/v0/postings/${company.slug}?mode=json`;
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(url);
   if (!res.ok) {
     throw new Error(`Lever fetch failed for ${company.slug}: ${res.status}`);
   }
