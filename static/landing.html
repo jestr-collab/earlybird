@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>earlybird — internship alerts within 30 minutes of posting</title>
+<meta name="description" content="earlybird scrapes 1,500+ company career pages every 30 minutes and emails you the moment a new internship or entry-level role matches.">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    margin: 0; color: #1a1a1a; background: #fbfbfc;
+  }
+  a { color: #06c; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 1.5rem; }
+
+  .site-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.6rem 0; max-width: 1040px; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem;
+  }
+  .brand { display: flex; align-items: center; gap: 0.5rem; font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; color: #111; }
+  .brand-bird { flex-shrink: 0; display: block; }
+  .header-cta {
+    font-size: 0.85rem; font-weight: 600; color: #06c; border: 1px solid #cfe0f3;
+    border-radius: 6px; padding: 0.45rem 0.9rem; background: #fff;
+  }
+  .header-cta:hover { text-decoration: none; background: #f2f8ff; }
+
+  .hero { padding: 3.5rem 0 3rem; text-align: center; }
+  .hero-logo {
+    display: inline-flex; align-items: center; justify-content: center; width: 68px; height: 68px;
+    border-radius: 18px; background: #eef4fc; margin-bottom: 1.75rem;
+  }
+  .hero h1 {
+    font-size: clamp(2rem, 4.5vw, 3rem); line-height: 1.15; letter-spacing: -0.02em;
+    margin: 0 0 1.1rem; font-weight: 800; color: #0f0f10;
+  }
+  .hero h1 .accent { color: #06c; }
+  .hero p.sub {
+    font-size: 1.1rem; color: #555; max-width: 480px; margin: 0 auto 2rem; line-height: 1.5;
+  }
+  .hero p.sub .accent { color: #06c; font-weight: 600; }
+  .cta-row { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+  .cta-primary {
+    display: inline-block; background: #06c; color: #fff; font-weight: 600; font-size: 1.05rem;
+    padding: 0.9rem 1.7rem; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  }
+  .cta-primary:hover { text-decoration: none; background: #0559ac; }
+  .cta-note { font-size: 0.8rem; color: #999; margin-top: 0.9rem; }
+
+  .marquee-section { padding: 2rem 0; border-top: 1px solid #e8e8ec; border-bottom: 1px solid #e8e8ec; background: #fff; }
+  .marquee-label {
+    text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em;
+    color: #999; margin: 0 0 1.1rem;
+  }
+  .marquee-wrap {
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+  }
+  .marquee-track { display: flex; width: max-content; animation: marquee-scroll 36s linear infinite; }
+  .marquee-track:hover { animation-play-state: paused; }
+  .marquee-item {
+    flex-shrink: 0; padding: 0.5rem 1.75rem; font-weight: 600; font-size: 0.95rem;
+    color: #444; white-space: nowrap; border-right: 1px solid #eee;
+  }
+  @keyframes marquee-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .marquee-track { animation: none; }
+  }
+
+  .stat-bar {
+    display: flex; justify-content: center; gap: 2.5rem; flex-wrap: wrap;
+    padding: 2.5rem 0; text-align: center;
+  }
+  .stat-num { font-size: 1.6rem; font-weight: 800; color: #06c; letter-spacing: -0.01em; }
+  .stat-label { font-size: 0.82rem; color: #777; margin-top: 0.2rem; }
+
+  .final-cta { text-align: center; padding: 2.5rem 0 3.5rem; border-top: 1px solid #e8e8ec; }
+  .final-cta h2 { font-size: 1.3rem; margin: 0 0 1.5rem; letter-spacing: -0.01em; }
+
+  .site-footer {
+    padding: 1.75rem 0; border-top: 1px solid #e8e8ec; color: #999; font-size: 0.78rem; text-align: center;
+  }
+
+  @media (max-width: 720px) {
+    .stat-bar { gap: 1.75rem; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="brand"><svg class="brand-bird" width="24" height="17" viewBox="0 0 28 20" fill="#06c" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><ellipse cx="13" cy="13" rx="7" ry="5"/><circle cx="20" cy="9" r="3.2"/><polygon points="23,8.3 27,7.3 23,10.3"/><polygon points="6,13 1,9 6,16"/><circle cx="20.6" cy="8.2" r="0.7" fill="#fff"/></svg>earlybird</div>
+  <a href="/app.html" class="header-cta">Find Internships</a>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <div class="hero-logo"><svg width="36" height="26" viewBox="0 0 28 20" fill="#06c" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><ellipse cx="13" cy="13" rx="7" ry="5"/><circle cx="20" cy="9" r="3.2"/><polygon points="23,8.3 27,7.3 23,10.3"/><polygon points="6,13 1,9 6,16"/><circle cx="20.6" cy="8.2" r="0.7" fill="#fff"/></svg></div>
+    <h1>First to know. <span class="accent">Every 30 minutes.</span></h1>
+    <p class="sub">earlybird checks 1,500+ company career pages every <span class="accent">30 minutes</span> and emails you the moment a new internship or entry-level role matches.</p>
+    <div class="cta-row">
+      <a href="/app.html" class="cta-primary">Find Internships →</a>
+    </div>
+  </div>
+</div>
+
+<div class="marquee-section">
+  <div class="marquee-label">A sample of the 1,500+ companies we track</div>
+  <div class="marquee-wrap">
+    <div class="marquee-track">
+      <span class="marquee-item">Zillow</span>
+      <span class="marquee-item">Thermo Fisher Scientific</span>
+      <span class="marquee-item">Dropbox</span>
+      <span class="marquee-item">Anthropic</span>
+      <span class="marquee-item">OpenAI</span>
+      <span class="marquee-item">DoorDash</span>
+      <span class="marquee-item">Verizon</span>
+      <span class="marquee-item">PwC</span>
+      <span class="marquee-item">Vanguard</span>
+      <span class="marquee-item">Visa</span>
+      <span class="marquee-item">Wells Fargo</span>
+      <span class="marquee-item">Twilio</span>
+      <span class="marquee-item">Squarespace</span>
+      <span class="marquee-item">Wayfair</span>
+      <span class="marquee-item">McDonald's</span>
+      <span class="marquee-item">Toyota Research Institute</span>
+      <span class="marquee-item">Northrop Grumman</span>
+      <span class="marquee-item">ServiceNow</span>
+      <span class="marquee-item">Epic Games</span>
+      <span class="marquee-item">Lyft</span>
+      <!-- duplicated for a seamless loop -->
+      <span class="marquee-item">Zillow</span>
+      <span class="marquee-item">Thermo Fisher Scientific</span>
+      <span class="marquee-item">Dropbox</span>
+      <span class="marquee-item">Anthropic</span>
+      <span class="marquee-item">OpenAI</span>
+      <span class="marquee-item">DoorDash</span>
+      <span class="marquee-item">Verizon</span>
+      <span class="marquee-item">PwC</span>
+      <span class="marquee-item">Vanguard</span>
+      <span class="marquee-item">Visa</span>
+      <span class="marquee-item">Wells Fargo</span>
+      <span class="marquee-item">Twilio</span>
+      <span class="marquee-item">Squarespace</span>
+      <span class="marquee-item">Wayfair</span>
+      <span class="marquee-item">McDonald's</span>
+      <span class="marquee-item">Toyota Research Institute</span>
+      <span class="marquee-item">Northrop Grumman</span>
+      <span class="marquee-item">ServiceNow</span>
+      <span class="marquee-item">Epic Games</span>
+      <span class="marquee-item">Lyft</span>
+    </div>
+  </div>
+</div>
+
+<div class="stat-bar">
+  <div>
+    <div class="stat-num">1,500+</div>
+    <div class="stat-label">companies tracked</div>
+  </div>
+  <div>
+    <div class="stat-num">30 min</div>
+    <div class="stat-label">scrape frequency</div>
+  </div>
+</div>
+
+<div class="final-cta">
+  <div class="wrap">
+    <h2>Stop finding out too late.</h2>
+    <a href="/app.html" class="cta-primary">Find Internships →</a>
+  </div>
+</div>
+
+<footer class="site-footer">earlybird — built for students hunting for their next internship.</footer>
+
+</body>
+</html>

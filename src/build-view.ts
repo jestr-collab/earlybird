@@ -11,7 +11,7 @@
 // Not fixed here - flagging so it doesn't get assumed away once this is
 // live on a real domain.
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, copyFile } from "node:fs/promises";
 import { getSupabase } from "./db.js";
 import { US_STATES, REMOTE_PREF } from "./states.js";
 
@@ -22,9 +22,24 @@ import { US_STATES, REMOTE_PREF } from "./states.js";
 // happen to sit next to view.html. public/ contains only what's meant to be
 // deployed, nothing else.
 const PUBLIC_DIR = new URL("../public/", import.meta.url);
-const VIEW_PATH = new URL("../public/index.html", import.meta.url);
+// 2026-09-16: the listing moved off the domain root to make room for a
+// hand-written marketing landing page at "/" (see LANDING_SRC/LANDING_PATH
+// below) - cold traffic from social/campus marketing needs the pitch first,
+// not a raw filterable table with no context. Everything downstream
+// (send-alerts.ts, send-confirmations.ts) links to /confirm.html and
+// /unsubscribe.html directly and never referenced index.html by name, so
+// this rename didn't require touching the email code at all.
+const VIEW_PATH = new URL("../public/app.html", import.meta.url);
 const CONFIRM_PATH = new URL("../public/confirm.html", import.meta.url);
 const UNSUBSCRIBE_PATH = new URL("../public/unsubscribe.html", import.meta.url);
+// The landing page itself is hand-authored, not generated from Supabase
+// data, so it lives as a static source file (static/landing.html, tracked
+// by git - unlike public/, which is gitignored as a build artifact) and
+// just gets copied into place on every build. Editing the landing page
+// means editing static/landing.html, never public/index.html directly -
+// that file gets overwritten by this script every 30 minutes.
+const LANDING_SRC = new URL("../static/landing.html", import.meta.url);
+const LANDING_PATH = new URL("../public/index.html", import.meta.url);
 
 // Real-data catch (2026-09-13): this used to be a single query with
 // .limit(1000) - which felt generous when it was written, but company
@@ -103,19 +118,24 @@ async function main() {
   await writeFile(VIEW_PATH, html);
   console.log(`Wrote ${VIEW_PATH.pathname} — open it in your browser.`);
 
+  // Landing page at the domain root - see LANDING_SRC's comment above.
+  // Plain copy, not a template render: this page has no dynamic data in it.
+  await copyFile(LANDING_SRC, LANDING_PATH);
+  console.log(`Wrote ${LANDING_PATH.pathname} (copied from static/landing.html).`);
+
   // The other half of the double opt-in flow (see send-confirmations.ts):
   // the link in that email points at <SITE_URL>/confirm.html, so this file
   // needs to be deployed alongside view.html wherever that ends up hosted.
   const confirmHtml = renderConfirmHtml(supabaseUrl, supabaseAnonKey);
   await writeFile(CONFIRM_PATH, confirmHtml);
-  console.log(`Wrote ${CONFIRM_PATH.pathname} — deploy this alongside view.html.`);
+  console.log(`Wrote ${CONFIRM_PATH.pathname} — deploy this alongside app.html.`);
 
   // Linked from the footer of every alert email (see send-alerts.ts) -
-  // needs to be deployed alongside view.html/confirm.html for the same
+  // needs to be deployed alongside app.html/confirm.html for the same
   // reason.
   const unsubscribeHtml = renderUnsubscribeHtml(supabaseUrl, supabaseAnonKey);
   await writeFile(UNSUBSCRIBE_PATH, unsubscribeHtml);
-  console.log(`Wrote ${UNSUBSCRIBE_PATH.pathname} — deploy this alongside view.html.`);
+  console.log(`Wrote ${UNSUBSCRIBE_PATH.pathname} — deploy this alongside app.html.`);
 }
 
 function renderHtml(
