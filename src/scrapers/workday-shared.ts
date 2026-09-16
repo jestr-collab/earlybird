@@ -77,8 +77,8 @@ function daysAgo(now: Date, days: number): string {
 }
 
 // Turns one page of Workday's raw jobPostings response into RawPosting[],
-// applying the same missing-externalPath guard regardless of which fetch
-// path (plain POST or browser) produced the page.
+// applying the same missing-externalPath/missing-title guards regardless of
+// which fetch path (plain POST or browser) produced the page.
 //
 // Real-data catch (2026-09-13): TJX and Loblaw Companies both returned at
 // least one jobPosting with no externalPath, despite the type above
@@ -88,11 +88,22 @@ function daysAgo(now: Date, days: number): string {
 // which used to take down the *entire* company's insert for that run (see
 // db.ts's insertBatch fix for the other half of this). Skip and log rather
 // than pushing a posting that can never be stored.
+//
+// Real-data catch (2026-09-16): Penn State's Workday tenant returned a
+// jobPosting with externalPath present but title missing/null - the same
+// unchecked-cast problem as externalPath above, just on a different field,
+// and the guard above never covered it. postings.title is NOT NULL too, so
+// this took down its entire insert chunk (see db.ts's INSERT_CHUNK_SIZE)
+// exactly like the externalPath case used to, just for the other field.
 export function postingsFromJobs(company: Company, baseUrl: string, jobPostings: WorkdayJob[]): RawPosting[] {
   const postings: RawPosting[] = [];
   for (const job of jobPostings) {
     if (!job.externalPath) {
       console.warn(`  [${company.name}] Workday job missing externalPath, skipping: ${job.title ?? "(no title)"}`);
+      continue;
+    }
+    if (!job.title || !job.title.trim()) {
+      console.warn(`  [${company.name}] Workday job missing title, skipping: ${job.externalPath}`);
       continue;
     }
     postings.push({

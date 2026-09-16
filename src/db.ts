@@ -74,12 +74,19 @@ export async function insertBatch(
 ): Promise<TaggedPosting[]> {
   if (postings.length === 0) return [];
 
-  // Defensive guard at the DB layer too, not just in workday.ts - any
-  // future scraper bug that produces a missing externalId should be
-  // dropped-and-logged here rather than poisoning its whole chunk.
+  // Defensive guard at the DB layer too, not just in the scrapers - any
+  // future scraper bug that produces a missing externalId or title should
+  // be dropped-and-logged here rather than poisoning its whole chunk (see
+  // workday-shared.ts's postingsFromJobs for the Penn State case this
+  // title check catches upstream too - this is the second line of defense
+  // in case a future ATS source skips that guard).
   const valid = postings.filter((p) => {
     if (!p.externalId) {
       console.warn(`  [${p.company}] posting missing externalId, skipping: ${p.title}`);
+      return false;
+    }
+    if (!p.title || !p.title.trim()) {
+      console.warn(`  [${p.company}] posting missing title, skipping (externalId: ${p.externalId})`);
       return false;
     }
     return true;
