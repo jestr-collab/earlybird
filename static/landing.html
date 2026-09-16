@@ -80,8 +80,107 @@
   .stat-num { font-size: 1.6rem; font-weight: 800; color: #06c; letter-spacing: -0.01em; }
   .stat-label { font-size: 0.82rem; color: #777; margin-top: 0.2rem; }
 
-  .final-cta { text-align: center; padding: 2.5rem 0 3.5rem; border-top: 1px solid #e8e8ec; }
-  .final-cta h2 { font-size: 1.3rem; margin: 0 0 1.5rem; letter-spacing: -0.01em; }
+  /* ---------- Final CTA: text on the left, a live timeline animation on ---------- */
+  /* the right, both showing at once (no alternation).                    */
+
+  .final-cta { padding: 3.5rem 0 4rem; border-top: 1px solid #e8e8ec; }
+  .final-cta-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 3.5rem; align-items: center;
+  }
+
+  .final-cta-left { text-align: left; }
+  .final-cta-left h2 { font-size: 1.5rem; margin: 0 0 0.6rem; letter-spacing: -0.01em; }
+  .final-cta-left p { font-size: 0.95rem; color: #666; margin: 0 0 1.5rem; line-height: 1.5; }
+
+  /* --- the timeline visualization (vertical, runs continuously) --- */
+  .viz { max-width: 300px; margin: 0 auto; }
+  .viz-sub {
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #999;
+    margin: 0 0 1.75rem; text-align: left;
+  }
+
+  .viz-track-wrap { position: relative; padding-left: 30px; min-height: 230px; }
+  .viz-track { position: absolute; top: 7px; bottom: 7px; left: 6px; width: 4px; background: #e6e8ec; border-radius: 3px; }
+  .viz-fill {
+    position: absolute; top: 7px; left: 6px; width: 4px; height: 0; background: #06c; border-radius: 3px;
+    animation: viz-fill-move-v 5.5s cubic-bezier(.4,0,.2,1) infinite;
+  }
+
+  @keyframes viz-fill-move-v {
+    0%   { height: 0%; }
+    18%  { height: 12%; }  /* earlybird alert lands almost immediately */
+    30%  { height: 12%; }  /* hold, so the early point reads clearly  */
+    72%  { height: 58%; }  /* slow crawl out to the job board / LinkedIn */
+    100% { height: 100%; } /* the swarm arrives */
+  }
+
+  .viz-point { position: absolute; left: 0; }
+  .viz-point.p1 { top: 0%; }
+  .viz-point.p2 { top: 46%; }
+  .viz-point.p3 { top: 92%; }
+
+  .viz-dot {
+    position: absolute; left: 0; top: 7px; transform: translateY(-50%);
+    width: 15px; height: 15px; border-radius: 50%; background: #fff;
+    border: 3px solid #ccd2da; box-shadow: 0 0 0 4px #fbfbfc; z-index: 1;
+  }
+  .p1 .viz-dot { animation: viz-dot-on 5.5s steps(1) infinite; animation-delay: 0.9s; }
+  .p2 .viz-dot { animation: viz-dot-on 5.5s steps(1) infinite; animation-delay: 3.9s; }
+  .p3 .viz-dot { animation: viz-dot-on 5.5s steps(1) infinite; animation-delay: 5.4s; }
+  @keyframes viz-dot-on { 0% { border-color: #ccd2da; background: #fff; } 1%, 100% { border-color: #06c; background: #06c; } }
+
+  .viz-label {
+    position: absolute; left: 30px; top: 7px; transform: translateY(-50%);
+    font-size: 0.78rem; color: #888; white-space: nowrap; text-align: left; line-height: 1.4;
+  }
+  .viz-label strong { display: block; color: #222; font-size: 0.86rem; }
+
+  .viz-badge {
+    position: absolute; left: 56px; top: 40px;
+    background: #06c; color: #fff; font-size: 0.68rem; font-weight: 700;
+    padding: 0.32rem 0.65rem; border-radius: 20px; white-space: nowrap;
+    box-shadow: 0 3px 8px rgba(6,102,204,0.28);
+    animation: viz-badge-in 5.5s ease infinite;
+  }
+  @keyframes viz-badge-in {
+    0%, 14% { opacity: 0; transform: translateY(6px) scale(0.92); }
+    22% { opacity: 1; transform: translateY(0) scale(1.04); }
+    28%, 96% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(0) scale(1); }
+  }
+
+  .viz-swarm { position: absolute; left: 30px; top: 34px; display: flex; gap: 3px; }
+  .viz-swarm span { width: 7px; height: 7px; border-radius: 50%; background: #c9506a; opacity: 0; }
+  .viz-swarm span { animation: viz-swarm-in 5.5s ease infinite; }
+  .viz-swarm span:nth-child(2) { animation-delay: 0.06s; }
+  .viz-swarm span:nth-child(3) { animation-delay: 0.12s; }
+  .viz-swarm span:nth-child(4) { animation-delay: 0.18s; }
+  .viz-swarm span:nth-child(5) { animation-delay: 0.24s; }
+  @keyframes viz-swarm-in {
+    0%, 88% { opacity: 0; transform: translateY(-4px); }
+    96%, 100% { opacity: 1; transform: translateY(0); }
+  }
+  .viz-swarm-label {
+    position: absolute; left: 30px; top: 20px;
+    font-size: 0.68rem; font-weight: 700; color: #c9506a; white-space: nowrap; opacity: 0;
+    animation: viz-swarm-in 5.5s ease infinite;
+  }
+
+  @media (max-width: 760px) {
+    .final-cta-grid { grid-template-columns: 1fr; gap: 2.5rem; text-align: center; }
+    .final-cta-left { text-align: center; }
+    .viz-sub { text-align: center; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .viz-fill, .p1 .viz-dot, .p2 .viz-dot, .p3 .viz-dot,
+    .viz-badge, .viz-swarm span, .viz-swarm-label {
+      animation: none;
+    }
+    .viz-fill { height: 100%; }
+    .p1 .viz-dot, .p2 .viz-dot, .p3 .viz-dot { border-color: #06c; background: #06c; }
+    .viz-badge, .viz-swarm span, .viz-swarm-label { opacity: 1; }
+  }
 
   .site-footer {
     padding: 1.75rem 0; border-top: 1px solid #e8e8ec; color: #999; font-size: 0.78rem; text-align: center;
@@ -172,8 +271,42 @@
 
 <div class="final-cta">
   <div class="wrap">
-    <h2>Stop finding out too late.</h2>
-    <a href="/app.html" class="cta-primary">Find Internships →</a>
+    <div class="final-cta-grid">
+
+      <div class="final-cta-left">
+        <h2>Stop finding out too late.</h2>
+        <p>Pick your fields, set your alerts, and let earlybird watch the career pages for you.</p>
+        <a href="/app.html" class="cta-primary">Find Internships →</a>
+      </div>
+
+      <div class="viz">
+        <div class="viz-sub">What happens after a posting goes live</div>
+
+        <div class="viz-track-wrap">
+          <div class="viz-track"></div>
+          <div class="viz-fill"></div>
+
+          <div class="viz-point p1">
+            <div class="viz-badge">earlybird alerts you here</div>
+            <div class="viz-dot"></div>
+            <div class="viz-label"><strong>Posted</strong>to the company's career page</div>
+          </div>
+
+          <div class="viz-point p2">
+            <div class="viz-dot"></div>
+            <div class="viz-label"><strong>Hours later</strong>picked up by job boards / LinkedIn</div>
+          </div>
+
+          <div class="viz-point p3">
+            <div class="viz-swarm-label">100s of applicants</div>
+            <div class="viz-swarm"><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="viz-dot"></div>
+            <div class="viz-label"><strong>Days later</strong>the role is already buried</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
   </div>
 </div>
 
