@@ -14,6 +14,21 @@
 # this image can drift out of sync and fail at runtime.
 FROM mcr.microsoft.com/playwright:v1.47.2-jammy
 
+# This image ships Node 20, but @supabase/supabase-js's realtime client
+# (a transitive dependency, not something this project calls directly)
+# now requires Node's native WebSocket support, which only exists on
+# Node 22+ - without it, getSupabase() throws immediately with "Node.js
+# detected but native WebSocket not found," before a single company gets
+# scraped (confirmed 2026-09-16: the cron job "succeeded" in ~30s on
+# Node 20 because nothing after this line ever ran). Installing Node 22
+# over the image's bundled Node 20 instead of downgrading Supabase or
+# hand-rolling a ws polyfill - Playwright's browser binaries aren't tied
+# to a specific Node version, so this doesn't affect the Chromium install
+# already baked into this base image.
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
+    && node --version
+
 WORKDIR /app
 
 COPY package.json package-lock.json ./
