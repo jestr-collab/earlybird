@@ -8,11 +8,15 @@
 # browser. Simpler and more reliable than reconstructing those system deps
 # by hand.
 #
-# Version pinned to match the playwright version in package.json
-# (^1.47.2) - if that dependency is ever bumped, bump this tag to match,
-# otherwise the Playwright *library* and the Chromium *binary* baked into
-# this image can drift out of sync and fail at runtime.
-FROM mcr.microsoft.com/playwright:v1.47.2-jammy
+# Version pinned to match the playwright version actually resolved by
+# package-lock.json - if that dependency is ever bumped, bump this tag to
+# match, otherwise the Playwright *library* and the Chromium *binary* baked
+# into this image drift out of sync and fail at runtime. This happened on
+# 2026-09-16: package.json's "^1.47.2" range resolved to 1.63.0 in the
+# lockfile, but this image was still pinned to 1.47.2's browser binaries,
+# which broke the Workday bot-protection fallback (src/browser.ts) with
+# "browserType.launch: Executable doesn't exist" during browser cleanup.
+FROM mcr.microsoft.com/playwright:v1.63.0-jammy
 
 # This image ships Node 20, but @supabase/supabase-js's realtime client
 # (a transitive dependency, not something this project calls directly)
