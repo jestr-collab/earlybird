@@ -32,7 +32,8 @@
     "@supabase/supabase-js": "^2.45.4",
     "dotenv": "^16.4.5",
     "playwright": "^1.47.2",
-    "resend": "^6.28.0"
+    "resend": "^6.28.0",
+    "stripe": "^17.4.0"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",
