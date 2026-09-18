@@ -1086,11 +1086,21 @@ function renderAccountHtml(): string {
   .row:last-of-type { border-bottom: none; }
   .row-label { color: #999; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 0.15rem; }
   .row-value { font-weight: 600; }
-  .portal-btn {
+  /* Deliberately NOT styled as a primary CTA - this only opens a plain
+     confirmation step (see #leavingPanel below), not billing itself, so it
+     shouldn't compete visually with "Keep my subscription" there. */
+  .manage-link-wrap { margin-top: 1.6rem; text-align: center; }
+  .manage-link { background: none; border: none; color: #888; font-family: inherit; font-size: 0.8rem; cursor: pointer; padding: 0; text-decoration: underline; }
+  .manage-link:hover { color: #555; }
+  .keep-btn {
     width: 100%; background: #06c; color: #fff; border: none; border-radius: 6px;
-    padding: 0.65rem; font-size: 0.9rem; font-family: inherit; cursor: pointer; margin-top: 1.4rem;
+    padding: 0.65rem; font-size: 0.9rem; font-family: inherit; cursor: pointer; margin-top: 1rem;
   }
-  .portal-btn:disabled { background: #99c2e8; cursor: default; }
+  .portal-btn {
+    background: none; border: none; color: #888; font-family: inherit; font-size: 0.8rem;
+    cursor: pointer; padding: 0; text-decoration: underline; margin-top: 0.9rem;
+  }
+  .portal-btn:disabled { color: #ccc; cursor: default; }
   .portal-hint { font-size: 0.75rem; color: #999; margin-top: 0.6rem; line-height: 1.4; }
   .acct-msg { font-size: 0.8rem; margin-top: 0.7rem; min-height: 1em; }
   .acct-msg.error { color: #b3261e; }
@@ -1103,6 +1113,8 @@ function renderAccountHtml(): string {
 <div class="card"><div id="status">Loading your account...</div></div>
 <a class="back-link" href="/app.html">&larr; Back to listings</a>
 <script>
+let currentToken = null;
+
 function formatPlanLabel(plan) {
   return plan === 'semester' ? 'Semester ($49 / 3 months)' : 'Monthly ($19/mo)';
 }
@@ -1119,10 +1131,33 @@ function showLoaded(info, token) {
     <div class="row"><div class="row-label">Email</div><div class="row-value">\${info.email}</div></div>
     <div class="row"><div class="row-label">Plan</div><div class="row-value">\${formatPlanLabel(info.plan)}</div></div>
     <div class="row"><div class="row-label">Renews</div><div class="row-value">\${formatDate(info.currentPeriodEnd)}</div></div>
-    <button id="portalBtn" class="portal-btn">Manage billing / Cancel subscription</button>
+    <div class="manage-link-wrap">
+      <button type="button" class="manage-link" id="openManageBtn">Manage subscription</button>
+    </div>
+    <div id="leavingPanel" style="display:none;"></div>
+  \`;
+  document.getElementById('openManageBtn').addEventListener('click', showLeavingPanel);
+}
+
+// One honest interstitial before billing/cancellation - not a maze, just a
+// single "are you sure, here's an alternative" step (same pattern Netflix,
+// Spotify etc. use). "Continue to billing" always stays a plain, reachable
+// link, never hidden or disabled - see the ui/legal discussion this came
+// from: de-emphasizing is fine, obstructing isn't.
+function showLeavingPanel() {
+  const token = currentToken;
+  document.getElementById('leavingPanel').style.display = 'block';
+  document.getElementById('leavingPanel').innerHTML = \`
+    <p style="font-size:0.85rem; color:#555; margin: 1.2rem 0 0; line-height:1.4;">Before you go — want to keep your Pro access?</p>
+    <button type="button" id="keepBtn" class="keep-btn">Keep my subscription</button>
+    <button type="button" id="portalBtn" class="portal-btn">Continue to billing / cancel</button>
     <p class="portal-hint">Update your card, view invoices, or cancel — handled securely by Stripe.</p>
     <div id="acctMsg" class="acct-msg"></div>
   \`;
+  document.getElementById('keepBtn').addEventListener('click', () => {
+    document.getElementById('leavingPanel').style.display = 'none';
+    document.getElementById('leavingPanel').innerHTML = '';
+  });
   document.getElementById('portalBtn').addEventListener('click', async () => {
     const btn = document.getElementById('portalBtn');
     const msgEl = document.getElementById('acctMsg');
@@ -1141,7 +1176,7 @@ function showLoaded(info, token) {
       window.location.href = responseBody.url;
     } catch (err) {
       btn.disabled = false;
-      btn.textContent = 'Manage billing / Cancel subscription';
+      btn.textContent = 'Continue to billing / cancel';
       msgEl.textContent = err.message || 'Something went wrong - try again in a moment.';
     }
   });
@@ -1162,6 +1197,7 @@ function showError(message) {
     showError('You need to be signed in as a Pro subscriber to see this page. Head back to the listings and use "Already a subscriber? Get your link" if needed.');
     return;
   }
+  currentToken = token;
   try {
     const res = await fetch('/api/account-info?login=' + encodeURIComponent(token));
     if (!res.ok) throw new Error('not authorized');
