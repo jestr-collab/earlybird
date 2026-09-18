@@ -31,6 +31,14 @@
   // reaching the running Worker even after a fresh deploy).
   "vars": {
     "STRIPE_PRICE_MONTHLY": "price_1UGRMMACXmLhiaFCrNYFFYnT",
-    "STRIPE_PRICE_SEMESTER": "price_1UGRMmACXmLhiaFCqKxnUMFU"
+    "STRIPE_PRICE_SEMESTER": "price_1UGRMmACXmLhiaFCqKxnUMFU",
+    // Added 2026-09-18 - this was missing entirely from the Worker's
+    // environment (only ever set on Render, a completely separate
+    // environment from this Cloudflare Worker), which is why every Supabase
+    // call from inside the Worker (the webhook, /api/postings-full,
+    // /api/request-login) was throwing "supabaseUrl is required." at
+    // runtime. Not a secret - this is just the project's public REST API
+    // base URL, safe to commit.
+    "SUPABASE_URL": "https://dlonxlehlnazmidzkcuf.supabase.co"
   }
 }
