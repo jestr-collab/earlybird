@@ -18,10 +18,18 @@ interface RequestLoginBody {
   email: string;
 }
 
-const SAME_RESPONSE = new Response(
-  JSON.stringify({ ok: true, message: "If that email has an active subscription, a login link is on its way." }),
-  { status: 200, headers: { "Content-Type": "application/json" } }
-);
+// A function, not a top-level `new Response(...)` constant - constructing a
+// Response at module/global scope (outside a request handler) trips
+// Cloudflare Workers' "Disallowed operation called within global scope"
+// guard (code 10021), which blocked this route from deploying at all. Every
+// call site below now calls this instead, building the Response fresh
+// inside the request handler where it's allowed.
+function sameResponse(): Response {
+  return new Response(
+    JSON.stringify({ ok: true, message: "If that email has an active subscription, a login link is on its way." }),
+    { status: 200, headers: { "Content-Type": "application/json" } }
+  );
+}
 
 export async function handleRequestLogin(request: Request, env: Env): Promise<Response> {
   let body: RequestLoginBody;
@@ -49,11 +57,11 @@ export async function handleRequestLogin(request: Request, env: Env): Promise<Re
     // Still return the generic response - a DB hiccup here shouldn't leak
     // anything about whether the email exists, and the subscriber can just
     // try again in a moment.
-    return SAME_RESPONSE;
+    return sameResponse();
   }
 
   if (!subscriber || !subscriber.is_paid) {
-    return SAME_RESPONSE;
+    return sameResponse();
   }
 
   const loginToken = crypto.randomUUID();
@@ -66,12 +74,12 @@ export async function handleRequestLogin(request: Request, env: Env): Promise<Re
 
   if (updateError) {
     console.error("[request-login] token update failed:", updateError.message);
-    return SAME_RESPONSE;
+    return sameResponse();
   }
 
   await sendLoginLinkEmail(email, loginToken, env);
 
-  return SAME_RESPONSE;
+  return sameResponse();
 }
 
 async function sendLoginLinkEmail(email: string, loginToken: string, env: Env): Promise<void> {
