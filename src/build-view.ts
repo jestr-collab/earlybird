@@ -192,6 +192,8 @@ function renderHtml(
   .brand { display: flex; align-items: center; gap: 0.5rem; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em; color: #111; }
   .brand-bird { flex-shrink: 0; display: block; }
   .tagline { color: #777; font-size: 0.85rem; margin: 0; }
+  .account-link { font-size: 0.82rem; color: #555; white-space: nowrap; }
+  .account-link:hover { color: #06c; }
   .stats { color: #888; font-size: 0.8rem; margin-bottom: 1.25rem; }
 
   .layout { display: flex; gap: 2rem; align-items: flex-start; }
@@ -350,6 +352,7 @@ function renderHtml(
 <header class="site-header">
   <div class="brand"><svg class="brand-bird" width="26" height="19" viewBox="0 0 28 20" fill="#06c" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><ellipse cx="13" cy="13" rx="7" ry="5"/><circle cx="20" cy="9" r="3.2"/><polygon points="23,8.3 27,7.3 23,10.3"/><polygon points="6,13 1,9 6,16"/><circle cx="20.6" cy="8.2" r="0.7" fill="#fff"/></svg>earlybird</div>
   <p class="tagline">New internship &amp; entry-level postings, the moment they go live.</p>
+  <a href="/account.html" id="accountLink" class="account-link" style="display:none;">My Account</a>
 </header>
 <div class="stats" id="stats">${postings.length.toLocaleString()} open roles tracked — titles and posting time are free, full details are Pro</div>
 
@@ -421,9 +424,6 @@ function renderHtml(
       <button id="proCatsSaveBtn" class="signup-btn">Save</button>
       <button type="button" class="link-btn" id="proCatsCancelBtn" style="display:block; margin: 0.6rem auto 0;">Cancel</button>
       <div id="proCatsMsg" class="signup-msg"></div>
-    </div>
-    <div class="already-sub">
-      <a href="/account.html">Manage plan &amp; billing</a>
     </div>
   </div>
 </aside>
@@ -896,6 +896,7 @@ document.getElementById('requestNewLinkBtn').addEventListener('click', () => {
     document.getElementById('locationFilter').style.display = '';
     document.getElementById('signupCard').style.display = 'none';
     document.getElementById('proCard').style.display = '';
+    document.getElementById('accountLink').style.display = '';
     document.getElementById('proPlanLine').innerHTML = formatPlanLine(responseBody.plan, responseBody.currentPeriodEnd);
     renderProCats();
     document.getElementById('stats').textContent = fullData.length.toLocaleString() + ' open roles tracked, updated continuously';
