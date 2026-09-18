@@ -26,8 +26,16 @@ import { handleStripeWebhook, type Env as WebhookEnv } from "./api/webhook.js";
 import { handleGetFullPostings, type Env as PostingsEnv } from "./api/postings.js";
 import { handleRequestLogin, type Env as LoginEnv } from "./api/login.js";
 import { handleUpdatePreferences, type Env as PreferencesEnv } from "./api/preferences.js";
+import { handleGetAccountInfo, type Env as AccountEnv } from "./api/account.js";
+import { handleCreatePortalSession, type Env as BillingPortalEnv } from "./api/billing-portal.js";
 
-type Env = CheckoutEnv & WebhookEnv & PostingsEnv & LoginEnv & PreferencesEnv & { ASSETS: Fetcher };
+type Env = CheckoutEnv &
+  WebhookEnv &
+  PostingsEnv &
+  LoginEnv &
+  PreferencesEnv &
+  AccountEnv &
+  BillingPortalEnv & { ASSETS: Fetcher };
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -59,6 +67,16 @@ export default {
     // /api/postings-full above).
     if (url.pathname === "/api/update-preferences" && request.method === "POST") {
       return handleUpdatePreferences(request, env);
+    }
+
+    // account.html's data source and "Manage billing" button - see
+    // src/api/account.ts and src/api/billing-portal.ts.
+    if (url.pathname === "/api/account-info" && request.method === "GET") {
+      return handleGetAccountInfo(request, env);
+    }
+
+    if (url.pathname === "/api/create-portal-session" && request.method === "POST") {
+      return handleCreatePortalSession(request, env);
     }
 
     // Anything else that reaches the Worker (rather than being served

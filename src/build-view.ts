@@ -32,6 +32,11 @@ const PUBLIC_DIR = new URL("../public/", import.meta.url);
 const VIEW_PATH = new URL("../public/app.html", import.meta.url);
 const CONFIRM_PATH = new URL("../public/confirm.html", import.meta.url);
 const UNSUBSCRIBE_PATH = new URL("../public/unsubscribe.html", import.meta.url);
+// Standalone account/billing page (2026-09-18) - kept separate from
+// app.html's sidebar rather than cramming a "cancel subscription" flow in
+// there too. Auth is the same login_token-in-localStorage pattern as
+// app.html; see src/api/account.ts and src/api/billing-portal.ts.
+const ACCOUNT_PATH = new URL("../public/account.html", import.meta.url);
 // The landing page itself is hand-authored, not generated from Supabase
 // data, so it lives as a static source file (static/landing.html, tracked
 // by git - unlike public/, which is gitignored as a build artifact) and
@@ -144,6 +149,12 @@ async function main() {
   const unsubscribeHtml = renderUnsubscribeHtml(supabaseUrl, supabaseAnonKey);
   await writeFile(UNSUBSCRIBE_PATH, unsubscribeHtml);
   console.log(`Wrote ${UNSUBSCRIBE_PATH.pathname} — deploy this alongside app.html.`);
+
+  // Plan/billing management, linked from app.html's Pro sidebar card - see
+  // ACCOUNT_PATH's comment above.
+  const accountHtml = renderAccountHtml();
+  await writeFile(ACCOUNT_PATH, accountHtml);
+  console.log(`Wrote ${ACCOUNT_PATH.pathname} — deploy this alongside app.html.`);
 }
 
 function renderHtml(
@@ -410,6 +421,9 @@ function renderHtml(
       <button id="proCatsSaveBtn" class="signup-btn">Save</button>
       <button type="button" class="link-btn" id="proCatsCancelBtn" style="display:block; margin: 0.6rem auto 0;">Cancel</button>
       <div id="proCatsMsg" class="signup-msg"></div>
+    </div>
+    <div class="already-sub">
+      <a href="/account.html">Manage plan &amp; billing</a>
     </div>
   </div>
 </aside>
@@ -1041,6 +1055,121 @@ document.getElementById('unsubBtn').addEventListener('click', async () => {
     show('ok', "Already unsubscribed", "This link was already used - nothing more to do.");
   }
 });
+</script>
+</body>
+</html>
+`;
+}
+
+// Standalone account/billing page (2026-09-18) - see ACCOUNT_PATH's comment
+// at the top of this file. Uses the same login_token-in-localStorage
+// bootstrap as app.html's initAuth(), just simpler: no ?login= URL param
+// handling here, since the only way to reach this page is a link FROM
+// app.html (which has already saved the token to localStorage by the time
+// someone clicks "Manage plan & billing").
+function renderAccountHtml(): string {
+  return `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your account — earlybird</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 460px; margin: 4rem auto; padding: 0 1.5rem; color: #1a1a1a; background: #fbfbfc; }
+  .brand { display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; color: #111; margin-bottom: 2.5rem; }
+  .brand-bird { flex-shrink: 0; display: block; }
+  .card { background: #fff; border: 1px solid #eee; border-radius: 12px; padding: 2rem 1.5rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03); text-align: center; }
+  h1 { font-size: 1.15rem; margin: 0 0 1.2rem; }
+  .row { text-align: left; font-size: 0.88rem; color: #444; padding: 0.6rem 0; border-bottom: 1px solid #f0f0f3; }
+  .row:last-of-type { border-bottom: none; }
+  .row-label { color: #999; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 0.15rem; }
+  .row-value { font-weight: 600; }
+  .portal-btn {
+    width: 100%; background: #06c; color: #fff; border: none; border-radius: 6px;
+    padding: 0.65rem; font-size: 0.9rem; font-family: inherit; cursor: pointer; margin-top: 1.4rem;
+  }
+  .portal-btn:disabled { background: #99c2e8; cursor: default; }
+  .portal-hint { font-size: 0.75rem; color: #999; margin-top: 0.6rem; line-height: 1.4; }
+  .acct-msg { font-size: 0.8rem; margin-top: 0.7rem; min-height: 1em; }
+  .acct-msg.error { color: #b3261e; }
+  .back-link { display: block; margin-top: 1.5rem; font-size: 0.82rem; }
+  a { color: #06c; }
+</style>
+</head>
+<body>
+<div class="brand"><svg class="brand-bird" width="26" height="19" viewBox="0 0 28 20" fill="#06c" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><ellipse cx="13" cy="13" rx="7" ry="5"/><circle cx="20" cy="9" r="3.2"/><polygon points="23,8.3 27,7.3 23,10.3"/><polygon points="6,13 1,9 6,16"/><circle cx="20.6" cy="8.2" r="0.7" fill="#fff"/></svg>earlybird</div>
+<div class="card"><div id="status">Loading your account...</div></div>
+<a class="back-link" href="/app.html">&larr; Back to listings</a>
+<script>
+function formatPlanLabel(plan) {
+  return plan === 'semester' ? 'Semester ($49 / 3 months)' : 'Monthly ($19/mo)';
+}
+function formatDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function showLoaded(info, token) {
+  document.getElementById('status').innerHTML = \`
+    <h1>Your account</h1>
+    <div class="row"><div class="row-label">Email</div><div class="row-value">\${info.email}</div></div>
+    <div class="row"><div class="row-label">Plan</div><div class="row-value">\${formatPlanLabel(info.plan)}</div></div>
+    <div class="row"><div class="row-label">Renews</div><div class="row-value">\${formatDate(info.currentPeriodEnd)}</div></div>
+    <button id="portalBtn" class="portal-btn">Manage billing / Cancel subscription</button>
+    <p class="portal-hint">Update your card, view invoices, or cancel — handled securely by Stripe.</p>
+    <div id="acctMsg" class="acct-msg"></div>
+  \`;
+  document.getElementById('portalBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('portalBtn');
+    const msgEl = document.getElementById('acctMsg');
+    msgEl.className = 'acct-msg error';
+    msgEl.textContent = '';
+    btn.disabled = true;
+    btn.textContent = 'Opening billing portal...';
+    try {
+      const res = await fetch('/api/create-portal-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login: token }),
+      });
+      const responseBody = await res.json();
+      if (!res.ok || !responseBody.url) throw new Error(responseBody.error || 'Could not open billing portal');
+      window.location.href = responseBody.url;
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = 'Manage billing / Cancel subscription';
+      msgEl.textContent = err.message || 'Something went wrong - try again in a moment.';
+    }
+  });
+}
+
+function showError(message) {
+  document.getElementById('status').innerHTML = \`
+    <h1>Your account</h1>
+    <p style="color:#666; font-size:0.88rem; line-height:1.5;">\${message}</p>
+    <p style="margin-top:1rem;"><a href="/app.html">Go back and request a fresh login link</a></p>
+  \`;
+}
+
+(async function main() {
+  let token = null;
+  try { token = localStorage.getItem('earlybird_login_token'); } catch (err) { token = null; }
+  if (!token) {
+    showError('You need to be signed in as a Pro subscriber to see this page. Head back to the listings and use "Already a subscriber? Get your link" if needed.');
+    return;
+  }
+  try {
+    const res = await fetch('/api/account-info?login=' + encodeURIComponent(token));
+    if (!res.ok) throw new Error('not authorized');
+    const info = await res.json();
+    showLoaded(info, token);
+  } catch (err) {
+    showError('Your login link has expired or wasn\\'t recognized. Head back to the listings and use "Already a subscriber? Get your link" to get a fresh one.');
+  }
+})();
 </script>
 </body>
 </html>
