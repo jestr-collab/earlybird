@@ -515,14 +515,16 @@ function proRowHtml(p) {
   const dt = displayTime(p);
   return \`
     <div class="row">
-      <div class="title">\${p.title}</div>
-      <div class="company">\${p.company_name}\${p.location ? ' · ' + p.location : ''}</div>
-      <div class="tags">
-        <span class="stage \${stageLabel}">\${stageLabel}</span>
-        \${(p.categories && p.categories.length ? p.categories : ['other']).map(c => \`<span class="cat">\${c}</span>\`).join('')}
-        \${p.preferred_majors && p.preferred_majors.length ? \`<span class="majors">\${formatMajors(p.preferred_majors)}</span>\` : ''}
-        <span>\${dt.label} \${timeAgo(dt.iso)}</span>
-        · <a href="\${p.url}" target="_blank">view posting</a>
+      <div class="row-main">
+        <div class="title">\${p.title}</div>
+        <div class="company">\${p.company_name}\${p.location ? ' · ' + p.location : ''}</div>
+        <div class="tags">
+          <span class="stage \${stageLabel}">\${stageLabel}</span>
+          \${(p.categories && p.categories.length ? p.categories : ['other']).map(c => \`<span class="cat">\${c}</span>\`).join('')}
+          \${p.preferred_majors && p.preferred_majors.length ? \`<span class="majors">\${formatMajors(p.preferred_majors)}</span>\` : ''}
+          <span>\${dt.label} \${timeAgo(dt.iso)}</span>
+          · <a href="\${p.url}" target="_blank">view posting</a>
+        </div>
       </div>
     </div>
   \`;
