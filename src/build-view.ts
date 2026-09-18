@@ -387,6 +387,11 @@ function renderHtml(
       </div>
     </div>
   </div>
+  <div class="signup-card" id="proCard" style="display:none;">
+    <h2>You're on Pro</h2>
+    <p class="signup-sub">Full listing unlocked — company, location, apply links, and real-time email alerts the moment a new posting matches your picks.</p>
+    <p class="signup-hint">Using a new browser or lost your link? Use "Already a subscriber?" on this page (or your original confirmation email) to get a fresh one.</p>
+  </div>
 </aside>
 </div>
 
@@ -763,6 +768,7 @@ document.getElementById('requestNewLinkBtn').addEventListener('click', () => {
     document.getElementById('unlockedBanner').classList.remove('hide');
     document.getElementById('locationFilter').style.display = '';
     document.getElementById('signupCard').style.display = 'none';
+    document.getElementById('proCard').style.display = '';
     document.getElementById('stats').textContent = fullData.length.toLocaleString() + ' open roles tracked, updated continuously';
     render();
   } catch (err) {
