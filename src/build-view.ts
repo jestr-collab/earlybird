@@ -319,6 +319,14 @@ function renderHtml(
   .login-form.show { display: block; }
   .login-form input { width: 100%; box-sizing: border-box; margin-bottom: 0.5rem; font-family: inherit; }
 
+  /* Shared plain-text button (Pro card's category editing, etc.) - same
+     visual language as .already-sub button above, just not scoped to one
+     specific container so other panels can use it too. */
+  .link-btn { background: none; border: none; color: #06c; font-family: inherit; font-size: 0.78rem; cursor: pointer; padding: 0; text-decoration: underline; }
+  .pro-cats-list { font-size: 0.82rem; color: #333; margin: 0 0 0.5rem; line-height: 1.4; }
+  .pro-cats-edit { display: none; margin-top: 0.6rem; }
+  .pro-cats-edit.show { display: block; }
+
   @media (max-width: 800px) {
     .layout { flex-direction: column; }
     .sidebar { width: 100%; }
@@ -391,7 +399,18 @@ function renderHtml(
     <h2>You're on Pro</h2>
     <p class="signup-sub" id="proPlanLine"></p>
     <p class="signup-sub">Full listing unlocked — company, location, apply links, and real-time email alerts the moment a new posting matches your picks.</p>
-    <p class="signup-hint">Using a new browser or lost your link? Use "Already a subscriber?" on this page (or your original confirmation email) to get a fresh one.</p>
+    <div id="proCatsView">
+      <p class="pro-cats-list">Getting alerts for: <strong id="proCatsList"></strong></p>
+      <button type="button" class="link-btn" id="proCatsEditBtn">Edit categories</button>
+    </div>
+    <div class="pro-cats-edit" id="proCatsEdit">
+      <div class="category-picker" id="proCategoryPicker">
+        ${categories.map((c) => `<button type="button" class="cat-pill" data-cat="${c}">${c}</button>`).join("\n        ")}
+      </div>
+      <button id="proCatsSaveBtn" class="signup-btn">Save</button>
+      <button type="button" class="link-btn" id="proCatsCancelBtn" style="display:block; margin: 0.6rem auto 0;">Cancel</button>
+      <div id="proCatsMsg" class="signup-msg"></div>
+    </div>
   </div>
 </aside>
 </div>
@@ -423,6 +442,11 @@ function renderHtml(
 const freeData = ${JSON.stringify(postings)};
 let fullData = null;
 let isPro = false;
+// Only set once initAuth() confirms a valid Pro login - used to authenticate
+// the "edit alert categories" save call the same way postings-full is
+// authenticated (the token IS the credential, no separate session/cookie).
+let proLoginToken = null;
+let proCategories = [];
 
 function currentData() { return (isPro && fullData) ? fullData : freeData; }
 
@@ -465,6 +489,75 @@ function formatPlanLine(plan, currentPeriodEnd) {
   }
   return '<strong>' + planLabel + ' plan</strong>' + renews;
 }
+
+function renderProCats() {
+  document.getElementById('proCatsList').textContent = proCategories.length ? proCategories.join(', ') : '(none selected)';
+}
+
+let proEditSelectedCats = [];
+
+function renderProCatPicker() {
+  document.querySelectorAll('#proCategoryPicker .cat-pill').forEach(btn => {
+    btn.classList.toggle('selected', proEditSelectedCats.includes(btn.dataset.cat));
+  });
+}
+
+document.getElementById('proCatsEditBtn').addEventListener('click', () => {
+  proEditSelectedCats = proCategories.slice();
+  renderProCatPicker();
+  document.getElementById('proCatsMsg').textContent = '';
+  document.getElementById('proCatsView').style.display = 'none';
+  document.getElementById('proCatsEdit').classList.add('show');
+});
+
+document.getElementById('proCatsCancelBtn').addEventListener('click', () => {
+  document.getElementById('proCatsEdit').classList.remove('show');
+  document.getElementById('proCatsView').style.display = '';
+});
+
+document.querySelectorAll('#proCategoryPicker .cat-pill').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const cat = btn.dataset.cat;
+    const idx = proEditSelectedCats.indexOf(cat);
+    if (idx >= 0) {
+      proEditSelectedCats.splice(idx, 1);
+    } else {
+      proEditSelectedCats.push(cat);
+    }
+    renderProCatPicker();
+  });
+});
+
+document.getElementById('proCatsSaveBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('proCatsSaveBtn');
+  const msgEl = document.getElementById('proCatsMsg');
+  msgEl.className = 'signup-msg error';
+  if (proEditSelectedCats.length === 0) {
+    msgEl.textContent = 'Pick at least 1 category.';
+    return;
+  }
+  msgEl.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  try {
+    const res = await fetch('/api/update-preferences', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login: proLoginToken, categories: proEditSelectedCats }),
+    });
+    const responseBody = await res.json();
+    if (!res.ok) throw new Error(responseBody.error || 'Could not save');
+    proCategories = proEditSelectedCats.slice();
+    renderProCats();
+    document.getElementById('proCatsEdit').classList.remove('show');
+    document.getElementById('proCatsView').style.display = '';
+  } catch (err) {
+    msgEl.textContent = err.message || 'Something went wrong - try again in a moment.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save';
+  }
+});
 
 function scrollToSignup() {
   const card = document.getElementById('signupCard');
@@ -783,11 +876,14 @@ document.getElementById('requestNewLinkBtn').addEventListener('click', () => {
     const responseBody = await res.json();
     fullData = responseBody.postings;
     isPro = true;
+    proLoginToken = token;
+    proCategories = Array.isArray(responseBody.categories) ? responseBody.categories : [];
     document.getElementById('unlockedBanner').classList.remove('hide');
     document.getElementById('locationFilter').style.display = '';
     document.getElementById('signupCard').style.display = 'none';
     document.getElementById('proCard').style.display = '';
     document.getElementById('proPlanLine').innerHTML = formatPlanLine(responseBody.plan, responseBody.currentPeriodEnd);
+    renderProCats();
     document.getElementById('stats').textContent = fullData.length.toLocaleString() + ' open roles tracked, updated continuously';
     render();
   } catch (err) {

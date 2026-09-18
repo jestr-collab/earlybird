@@ -25,8 +25,9 @@ import { handleCreateCheckoutSession, type Env as CheckoutEnv } from "./api/chec
 import { handleStripeWebhook, type Env as WebhookEnv } from "./api/webhook.js";
 import { handleGetFullPostings, type Env as PostingsEnv } from "./api/postings.js";
 import { handleRequestLogin, type Env as LoginEnv } from "./api/login.js";
+import { handleUpdatePreferences, type Env as PreferencesEnv } from "./api/preferences.js";
 
-type Env = CheckoutEnv & WebhookEnv & PostingsEnv & LoginEnv & { ASSETS: Fetcher };
+type Env = CheckoutEnv & WebhookEnv & PostingsEnv & LoginEnv & PreferencesEnv & { ASSETS: Fetcher };
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -51,6 +52,13 @@ export default {
 
     if (url.pathname === "/api/request-login" && request.method === "POST") {
       return handleRequestLogin(request, env);
+    }
+
+    // Pro sidebar's "Edit categories" control - see src/api/preferences.ts's
+    // top comment for the auth model (same login_token pattern as
+    // /api/postings-full above).
+    if (url.pathname === "/api/update-preferences" && request.method === "POST") {
+      return handleUpdatePreferences(request, env);
     }
 
     // Anything else that reaches the Worker (rather than being served
