@@ -410,8 +410,6 @@ function renderHtml(
     </div>
   </div>
   <div class="signup-card" id="proCard" style="display:none;">
-    <h2>You're on Pro</h2>
-    <p class="signup-sub" id="proPlanLine"></p>
     <p class="signup-sub">Full listing unlocked — company, location, apply links, and real-time email alerts the moment a new posting matches your picks.</p>
     <div id="proCatsView">
       <p class="pro-cats-list">Getting alerts for: <strong id="proCatsList"></strong></p>
@@ -897,7 +895,6 @@ document.getElementById('requestNewLinkBtn').addEventListener('click', () => {
     document.getElementById('signupCard').style.display = 'none';
     document.getElementById('proCard').style.display = '';
     document.getElementById('accountLink').style.display = '';
-    document.getElementById('proPlanLine').innerHTML = formatPlanLine(responseBody.plan, responseBody.currentPeriodEnd);
     renderProCats();
     document.getElementById('stats').textContent = fullData.length.toLocaleString() + ' open roles tracked, updated continuously';
     render();
