@@ -54,6 +54,13 @@ export async function handleCreateCheckoutSession(request: Request, env: Env): P
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
+      // Explicit rather than left to Stripe's auto-detection: a fresh
+      // Stripe account can reject Checkout Session creation with "No valid
+      // payment method types for this Checkout Session" until Card is
+      // enabled under Settings -> Payment methods. Naming it here means
+      // checkout works the moment the secret key + price IDs are right,
+      // without also depending on that dashboard toggle.
+      payment_method_types: ["card"],
       customer_email: email,
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${siteUrl}/app.html?checkout=success`,

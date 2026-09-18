@@ -61,9 +61,17 @@ async function fetchAllPostings(supabase: ReturnType<typeof getSupabase>) {
   while (true) {
     const { data, error } = await supabase
       .from("postings")
-      .select(
-        "title, company_name, ats, categories, category_reason, classifier_reason, is_internship, is_entry_level, entry_level_reason, location, url, first_seen_at, ats_updated_at, preferred_majors"
-      )
+      // Real paywall (2026-09-18): this file's output (public/app.html) is
+      // served as a public static asset by Cloudflare - anything selected
+      // here is downloadable by anyone via view-source, paywall CSS blur or
+      // not. So this now ONLY selects the fields the free tier is meant to
+      // see: title, stage, categories, and enough to compute a relative
+      // timestamp. Company name, location, apply URL, preferred majors, and
+      // the category-match reason are deliberately left out - those are
+      // fetched live, per-request, only for a caller with a valid paid
+      // login_token, by src/api/postings.ts's handleGetFullPostings. See
+      // that file for the full auth model.
+      .select("title, ats, categories, is_internship, is_entry_level, first_seen_at, ats_updated_at")
       .or("is_internship.eq.true,is_entry_level.eq.true")
       // first_seen_at alone isn't a unique sort key - a company's entire
       // backlog on its first sync all gets the same first_seen_at (down to
@@ -239,6 +247,78 @@ function renderHtml(
 
   .site-footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid #e8e8ec; color: #999; font-size: 0.78rem; text-align: center; }
 
+  /* --- Paywall (2026-09-18) - same treatment as the approved concept
+     mockup (Claude outputs/paywall-preview.html): blur + lock on rows,
+     no working link, until a valid paid login_token unlocks the full
+     dataset client-side. See the script below for the auth flow. */
+  .row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+  .row-main { min-width: 0; }
+  .posted { color: #999; font-size: 0.75rem; margin-top: 0.1rem; }
+  .row-blur { filter: blur(5px); user-select: none; }
+  .row-clickable { cursor: pointer; }
+  .row-clickable:hover { background: #f3f6fb; }
+  .signup-pulse { animation: signup-pulse-anim 0.9s ease-out; }
+  @keyframes signup-pulse-anim {
+    0% { box-shadow: 0 0 0 0 rgba(0,102,204,0.45); }
+    100% { box-shadow: 0 0 0 10px rgba(0,102,204,0); }
+  }
+
+  /* Posting-click modal - same "Unlock full access" pitch as the sidebar's
+     gated state, but as a real popup (not just a scroll/highlight), since
+     that's the more noticeable, unmissable prompt on both desktop (where
+     the sidebar is already visible) and mobile (where it's stacked far
+     below the fold). */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(20,20,25,0.45); z-index: 1000; align-items: center; justify-content: center; padding: 1rem; }
+  .modal-overlay.show { display: flex; }
+  .modal-card { background: #fff; border-radius: 12px; padding: 1.5rem; max-width: 340px; width: 100%; position: relative; box-shadow: 0 12px 40px rgba(0,0,0,0.25); }
+  .modal-card h3 { margin: 0 0 0.4rem; font-size: 1.05rem; }
+  .modal-card p { font-size: 0.82rem; color: #666; margin: 0 0 1rem; line-height: 1.45; }
+  .modal-card input { width: 100%; box-sizing: border-box; margin-bottom: 0.7rem; font-family: inherit; }
+  .modal-close {
+    position: absolute; top: 0.5rem; right: 0.7rem; background: none; border: none;
+    font-size: 1.4rem; line-height: 1; color: #999; cursor: pointer; padding: 0.2rem 0.4rem;
+  }
+  .modal-close:hover { color: #333; }
+  .row-lock {
+    flex-shrink: 0; display: inline-flex; align-items: center; cursor: pointer;
+    background: #f1f1f4; color: #888; font-size: 0.78rem; font-weight: 600;
+    padding: 0.4rem 0.8rem; border-radius: 6px; white-space: nowrap; margin-top: 0.1rem; border: none; font-family: inherit;
+  }
+  .row-lock:hover { background: #e8e8ee; }
+  .unlocked-banner {
+    background: #e6f7ec; color: #1a7a3f; text-align: center; font-size: 0.82rem;
+    padding: 0.5rem 1rem; border-radius: 8px; margin-bottom: 1rem;
+  }
+  .unlocked-banner.hide, .free-banner.hide { display: none; }
+  .free-banner {
+    background: #fff3cd; color: #7a5c00; font-size: 0.8rem; line-height: 1.4;
+    padding: 0.6rem 0.9rem; border-radius: 8px; margin-bottom: 1rem;
+  }
+
+  .signup-gated { text-align: center; display: none; padding: 0.5rem 0; }
+  .signup-gated.show { display: block; }
+  .signup-gated h3 { font-size: 0.95rem; margin: 0 0 0.4rem; }
+  .signup-gated p { font-size: 0.8rem; color: #666; margin: 0 0 1rem; line-height: 1.4; }
+  .signup-form.hide { display: none; }
+  .plan-picker { display: flex; gap: 0.5rem; margin-bottom: 0.9rem; }
+  .plan-option {
+    flex: 1; border: 1px solid #dcdce0; border-radius: 8px; padding: 0.6rem 0.5rem;
+    cursor: pointer; text-align: center; font-size: 0.8rem; background: #fff;
+  }
+  .plan-option.selected { border-color: #06c; background: #eef6ff; }
+  .plan-option .plan-price { font-weight: 700; font-size: 0.95rem; display: block; }
+  .plan-option .plan-period { color: #888; font-size: 0.72rem; }
+  .upgrade-btn {
+    width: 100%; background: #06c; color: #fff; border: none; border-radius: 6px;
+    padding: 0.55rem; font-size: 0.9rem; font-family: inherit; cursor: pointer;
+  }
+  .upgrade-btn:disabled { background: #99c2e8; cursor: default; }
+  .already-sub { text-align: center; margin-top: 0.9rem; font-size: 0.78rem; }
+  .already-sub button { background: none; border: none; color: #06c; font-family: inherit; font-size: 0.78rem; cursor: pointer; padding: 0; text-decoration: underline; }
+  .login-form { display: none; margin-top: 0.7rem; }
+  .login-form.show { display: block; }
+  .login-form input { width: 100%; box-sizing: border-box; margin-bottom: 0.5rem; font-family: inherit; }
+
   @media (max-width: 800px) {
     .layout { flex-direction: column; }
     .sidebar { width: 100%; }
@@ -252,13 +332,16 @@ function renderHtml(
   <div class="brand"><svg class="brand-bird" width="26" height="19" viewBox="0 0 28 20" fill="#06c" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><ellipse cx="13" cy="13" rx="7" ry="5"/><circle cx="20" cy="9" r="3.2"/><polygon points="23,8.3 27,7.3 23,10.3"/><polygon points="6,13 1,9 6,16"/><circle cx="20.6" cy="8.2" r="0.7" fill="#fff"/></svg>earlybird</div>
   <p class="tagline">New internship &amp; entry-level postings, the moment they go live.</p>
 </header>
-<div class="stats">${postings.length.toLocaleString()} open roles tracked, updated continuously</div>
+<div class="stats" id="stats">${postings.length.toLocaleString()} open roles tracked — titles and posting time are free, full details are Pro</div>
+
+<div class="unlocked-banner hide" id="unlockedBanner">You're on Pro — full listing unlocked.</div>
+<div class="free-banner hide" id="expiredBanner">Your Pro link expired or wasn't recognized — showing the free view. <button type="button" class="row-lock" id="requestNewLinkBtn" style="margin-left:0.4rem;">Get a new link</button></div>
 
 <div class="layout">
 <main class="main">
 <div class="controls">
   <input id="search" placeholder="Search title or company...">
-  <input id="locationFilter" placeholder="Location...">
+  <input id="locationFilter" placeholder="Location..." class="pro-only" style="display:none;">
   <select id="stageFilter">
     <option value="">Internship + Entry-level</option>
     <option value="internship">Internship only</option>
@@ -275,38 +358,68 @@ function renderHtml(
 
 <aside class="sidebar">
   <div class="signup-card" id="signupCard">
-    <h2>Get alerted first</h2>
-    <p class="signup-sub">Pick your categories and we'll email you the moment a new posting matches.</p>
-    <div class="stage-picker" id="stagePicker">
-      <label class="loc-option"><input type="checkbox" value="internship" checked> Internships</label>
-      <label class="loc-option"><input type="checkbox" value="entry-level" checked> Entry-level</label>
+    <div class="signup-form" id="signupForm">
+      <h2>Get full access</h2>
+      <p class="signup-sub">Company, location, apply link, and real-time email alerts are all part of Pro. Pick your categories now, upgrade in a click.</p>
+      <div class="category-picker" id="categoryPicker">
+        ${categories.map((c) => `<button type="button" class="cat-pill" data-cat="${c}">${c}</button>`).join("\n        ")}
+      </div>
+      <input id="signupEmail" type="email" placeholder="you@school.edu">
+      <button id="signupSubmit" class="signup-btn">Continue</button>
+      <div id="signupMsg" class="signup-msg"></div>
     </div>
-    <div class="category-picker" id="categoryPicker">
-      ${categories.map((c) => `<button type="button" class="cat-pill" data-cat="${c}">${c}</button>`).join("\n      ")}
+    <div class="signup-gated" id="signupGated">
+      <h3>Unlock full access</h3>
+      <p>Full posting details and real-time alerts are part of Pro.</p>
+      <div class="plan-picker" id="planPicker">
+        <div class="plan-option selected" data-plan="monthly"><span class="plan-price">$19</span><span class="plan-period">per month</span></div>
+        <div class="plan-option" data-plan="semester"><span class="plan-price">$49</span><span class="plan-period">per 3 months</span></div>
+      </div>
+      <button id="upgradeBtn" class="upgrade-btn">Upgrade to Pro</button>
+      <div id="upgradeMsg" class="signup-msg"></div>
     </div>
-    <div class="location-picker" id="locationPicker">
-      <label class="loc-option"><input type="checkbox" value="${REMOTE_PREF}"> Remote</label>
-      ${US_STATES.map((s) => `<label class="loc-option"><input type="checkbox" value="${s.abbr}"> ${s.name}</label>`).join("\n      ")}
+    <div class="already-sub" id="alreadySubWrap">
+      <button type="button" id="alreadySubToggle">Already a subscriber? Get your link</button>
+      <div class="login-form" id="loginForm">
+        <input id="loginEmail" type="email" placeholder="you@school.edu">
+        <button id="loginSubmit" class="signup-btn">Email me my link</button>
+        <div id="loginMsg" class="signup-msg"></div>
+      </div>
     </div>
-    <input id="signupEmail" type="email" placeholder="you@school.edu">
-    <button id="signupSubmit" class="signup-btn">Notify me</button>
-    <div id="signupMsg" class="signup-msg"></div>
   </div>
 </aside>
+</div>
+
+<div class="modal-overlay" id="postingModal">
+  <div class="modal-card">
+    <button type="button" class="modal-close" id="modalClose" aria-label="Close">&times;</button>
+    <h3>Unlock full access</h3>
+    <p>Company, location, the apply link, and real-time email alerts for this posting (and every match going forward) are part of Pro.</p>
+    <input id="modalEmail" type="email" placeholder="you@school.edu">
+    <div class="plan-picker" id="modalPlanPicker">
+      <div class="plan-option" data-plan="monthly"><span class="plan-price">$19</span><span class="plan-period">per month</span></div>
+      <div class="plan-option" data-plan="semester"><span class="plan-price">$49</span><span class="plan-period">per 3 months</span></div>
+    </div>
+    <button id="modalUpgradeBtn" class="upgrade-btn">Upgrade to Pro</button>
+    <div id="modalMsg" class="signup-msg"></div>
+  </div>
 </div>
 
 <footer class="site-footer">earlybird — built for students hunting for their next internship.</footer>
 
 <script>
-const data = ${JSON.stringify(postings)};
+// Real paywall (2026-09-18): "data" baked in here is already the free-safe
+// subset only (see fetchAllPostings' select() above) - title, stage,
+// categories, timestamps. fullData is populated client-side, in-memory
+// only (never written to localStorage - only the login TOKEN is), by
+// initAuth() below if-and-only-if a valid paid login_token is present.
+// render() below picks whichever dataset is active.
+const freeData = ${JSON.stringify(postings)};
+let fullData = null;
+let isPro = false;
 
-// Real-data catch (2026-09-13): this used to bucket the ENTIRE 0-59 minute
-// range as "just now", so a posting genuinely 15 minutes old looked
-// identical to one 1 minute old. That's a credibility problem for a
-// product whose whole pitch is speed - "just now" should mean just now,
-// not "sometime in the last hour". Minute-level granularity below 1 hour;
-// hour/day buckets are still fine above that (users don't need
-// second-level precision on a 3-day-old posting).
+function currentData() { return (isPro && fullData) ? fullData : freeData; }
+
 function timeAgo(iso) {
   const diffMs = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diffMs / 60000);
@@ -317,23 +430,6 @@ function timeAgo(iso) {
   return Math.floor(hrs / 24) + "d ago";
 }
 
-// first_seen_at is when OUR pipeline discovered the posting - not
-// necessarily when the company actually posted it. That's fine once a
-// company's been synced regularly, but on a brand-new company's first
-// sync, its whole existing backlog gets first_seen_at = right now, which
-// would otherwise show a job that's been live for weeks as "just now".
-//
-// ats_updated_at is the ATS's own reported date, but its precision varies
-// by source: Greenhouse/Lever/Ashby give an exact timestamp. Workday only
-// gives a relative bucket ("Posted Today", "Posted 3 Days Ago") which
-// parseWorkdayPostedOn approximates to a timestamp - notably, "Posted
-// Today" maps to the moment of that sync, so a Workday posting can
-// legitimately keep showing "posted just now" for hours after a run even
-// though it may have gone up earlier that same day. Three tiers, labeled
-// honestly rather than presenting all three as equally precise:
-//   "posted"   - exact, from Greenhouse/Lever/Ashby
-//   "posted ~" - approximate, parsed from Workday's day-level bucket
-//   "found"    - no ATS date at all, falling back to our own discovery time
 function displayTime(p) {
   if (p.ats_updated_at) {
     return { label: p.ats === "workday" ? "posted ~" : "posted", iso: p.ats_updated_at };
@@ -341,13 +437,6 @@ function displayTime(p) {
   return { label: "found", iso: p.first_seen_at };
 }
 
-// Real-data catch (2026-09-13): a preferred_majors list can run long
-// (extractMajors occasionally pulls 5-6 phrases out of one posting, some of
-// which are clearly extraction noise rather than real majors - e.g. a
-// clearance requirement like "Active Top Secret, Top Secret SCI" bleeding
-// in from an adjacent bullet with no period between them). That's a
-// separate extraction-quality problem to tune later; this just keeps a
-// long list from blowing out the row's height in the meantime.
 const MAX_MAJORS_SHOWN = 3;
 function formatMajors(majors) {
   if (!majors || majors.length === 0) return '';
@@ -356,35 +445,70 @@ function formatMajors(majors) {
   return shown + (extra > 0 ? \` + \${extra} more\` : '');
 }
 
-function render() {
-  const q = document.getElementById('search').value.toLowerCase();
-  const loc = document.getElementById('locationFilter').value.toLowerCase();
-  const cat = document.getElementById('catFilter').value;
-  const stage = document.getElementById('stageFilter').value;
-  const filtered = data.filter(p => {
-    const matchesQ = !q || p.title.toLowerCase().includes(q) || p.company_name.toLowerCase().includes(q);
-    // Free-text partial match, not an exact-match dropdown - location
-    // strings are too inconsistent across companies/ATSs ("Remote - USA",
-    // "New York, NY", "Hybrid - Austin, TX") for a clean list of options,
-    // same reasoning as the title/company search above.
-    const matchesLoc = !loc || (p.location && p.location.toLowerCase().includes(loc));
-    const matchesCat = !cat || (p.categories && p.categories.includes(cat));
-    const postingStage = p.is_internship ? 'internship' : 'entry-level';
-    const matchesStage = !stage || postingStage === stage;
-    return matchesQ && matchesLoc && matchesCat && matchesStage;
-  });
-  // Sort by whatever timestamp is actually shown on the row (displayTime's
-  // dt.iso), not first_seen_at - the product is built around "newest
-  // first", and first_seen_at (when OUR pipeline discovered it) can
-  // disagree with the real posted date shown on the row (ats_updated_at),
-  // so sorting by the former while displaying the latter produced a list
-  // that didn't look sorted at all.
-  filtered.sort((a, b) => new Date(displayTime(b).iso) - new Date(displayTime(a).iso));
-  document.getElementById('count').textContent = filtered.length + ' shown';
-  document.getElementById('list').innerHTML = filtered.map(p => {
-    const stageLabel = p.is_internship ? 'internship' : 'entry-level';
-    const dt = displayTime(p);
-    return \`
+function scrollToSignup() {
+  const card = document.getElementById('signupCard');
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // scrollIntoView alone is a no-op on desktop, where the sidebar is
+  // already visible next to the listing (side-by-side layout, nothing to
+  // scroll to) - so clicking a locked row looked like it did nothing. This
+  // pulse + focusing the email field makes the click register visibly
+  // whether or not any actual scrolling happens.
+  card.classList.remove('signup-pulse');
+  // eslint-disable-next-line no-unused-expressions
+  void card.offsetWidth; // restart the CSS animation if it's already mid-run
+  card.classList.add('signup-pulse');
+  const emailInput = document.getElementById('signupEmail');
+  if (emailInput && document.getElementById('signupForm') && !document.getElementById('signupForm').classList.contains('hide')) {
+    emailInput.focus();
+  }
+}
+
+function openPostingModal() {
+  const overlay = document.getElementById('postingModal');
+  overlay.classList.add('show');
+  document.getElementById('modalMsg').textContent = '';
+  const modalEmailInput = document.getElementById('modalEmail');
+  if (pendingEmail && !modalEmailInput.value) modalEmailInput.value = pendingEmail;
+  setSelectedPlan(selectedPlan); // sync the modal's plan picker to whatever's already chosen
+  modalEmailInput.focus();
+}
+
+function closePostingModal() {
+  document.getElementById('postingModal').classList.remove('show');
+}
+
+// Free rows never receive the real company/location (see fetchAllPostings'
+// select() above - it's simply never sent to the browser), so this blurred
+// line is a fixed, meaningless placeholder purely for the visual "there's
+// something here, and it's locked" effect from the approved mockup - not a
+// blurred version of real data. The whole row is clickable (not just a
+// separate "Unlock" pill per row, which felt noisy repeated 5,000+ times)
+// and scrolls to the Pro signup card, same as the mockup's row-lock click.
+const BLURRED_PLACEHOLDER = "Company name · Location";
+
+function freeRowHtml(p) {
+  const stageLabel = p.is_internship ? 'internship' : 'entry-level';
+  const dt = displayTime(p);
+  return \`
+    <div class="row row-clickable" onclick="openPostingModal()">
+      <div class="row-main">
+        <div class="title">\${p.title}</div>
+        <div class="company row-blur">\${BLURRED_PLACEHOLDER}</div>
+        <div class="posted">\${dt.label} \${timeAgo(dt.iso)}</div>
+        <div class="tags">
+          <span class="stage \${stageLabel}">\${stageLabel}</span>
+          \${(p.categories && p.categories.length ? p.categories : ['other']).map(c => \`<span class="cat">\${c}</span>\`).join('')}
+          · <a href="#" onclick="event.stopPropagation(); openPostingModal(); return false;">view posting</a>
+        </div>
+      </div>
+    </div>
+  \`;
+}
+
+function proRowHtml(p) {
+  const stageLabel = p.is_internship ? 'internship' : 'entry-level';
+  const dt = displayTime(p);
+  return \`
     <div class="row">
       <div class="title">\${p.title}</div>
       <div class="company">\${p.company_name}\${p.location ? ' · ' + p.location : ''}</div>
@@ -397,7 +521,27 @@ function render() {
       </div>
     </div>
   \`;
-  }).join('');
+}
+
+function render() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const loc = document.getElementById('locationFilter').value.toLowerCase();
+  const cat = document.getElementById('catFilter').value;
+  const stage = document.getElementById('stageFilter').value;
+  const filtered = currentData().filter(p => {
+    const matchesQ = !q || p.title.toLowerCase().includes(q) || (isPro && p.company_name && p.company_name.toLowerCase().includes(q));
+    // Location filtering only makes sense once Pro data (which includes
+    // location) is loaded - a free visitor never sees this control (it's
+    // display:none until isPro flips true in initAuth()).
+    const matchesLoc = !isPro || !loc || (p.location && p.location.toLowerCase().includes(loc));
+    const matchesCat = !cat || (p.categories && p.categories.includes(cat));
+    const postingStage = p.is_internship ? 'internship' : 'entry-level';
+    const matchesStage = !stage || postingStage === stage;
+    return matchesQ && matchesLoc && matchesCat && matchesStage;
+  });
+  filtered.sort((a, b) => new Date(displayTime(b).iso) - new Date(displayTime(a).iso));
+  document.getElementById('count').textContent = filtered.length + ' shown';
+  document.getElementById('list').innerHTML = filtered.map(p => isPro ? proRowHtml(p) : freeRowHtml(p)).join('');
 }
 
 document.getElementById('search').addEventListener('input', render);
@@ -406,12 +550,13 @@ document.getElementById('catFilter').addEventListener('change', render);
 document.getElementById('stageFilter').addEventListener('change', render);
 render();
 
-// --- Signup panel ---------------------------------------------------
-// Writes straight to Supabase from the browser using the public anon key
-// baked in below (not the service role key - see this file's real-data
-// catch comment in main()). Safe because of the "anon can sign up" RLS
-// policy: that key can only INSERT into subscribers, never read/modify
-// anyone else's row.
+// --- Pre-payment category picker -------------------------------------
+// Kept from the original free-signup design: letting someone pick their
+// fields before hitting the paywall gets them invested right before the
+// gate. Submitting no longer writes real alert prefs live (alerts are Pro
+// now) - it's a best-effort seed (see signupSubmit below) so that if they
+// do pay, the Stripe webhook's "match existing row by email" finds their
+// real category picks instead of falling back to every category.
 const SUPABASE_URL = ${JSON.stringify(supabaseUrl ?? null)};
 const SUPABASE_ANON_KEY = ${JSON.stringify(supabaseAnonKey ?? null)};
 const subscribeClient = (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase)
@@ -419,6 +564,8 @@ const subscribeClient = (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase)
   : null;
 
 let selectedCats = [];
+let selectedPlan = 'monthly';
+let pendingEmail = null;
 
 function renderCategoryPicker() {
   document.querySelectorAll('.cat-pill').forEach(btn => {
@@ -439,45 +586,29 @@ document.querySelectorAll('.cat-pill').forEach(btn => {
   });
 });
 
-function showSignedUp() {
-  document.getElementById('signupCard').innerHTML = \`
-    <div class="signup-confirm">
-      <div class="signup-confirm-check">✓</div>
-      <div class="signup-confirm-title">Almost there</div>
-      <div class="signup-confirm-sub">We'll email you a confirmation link shortly. Click it to start getting alerts - until then, nothing will be sent.</div>
-    </div>
-  \`;
+// Shared across BOTH plan pickers (sidebar's #planPicker and the modal's
+// #modalPlanPicker) - they use the same data-plan values, so keeping one
+// selectedPlan variable and re-syncing every .plan-option element by that
+// value (rather than tracking two independent selections) keeps them from
+// drifting out of sync with each other.
+function setSelectedPlan(plan) {
+  selectedPlan = plan;
+  document.querySelectorAll('.plan-option').forEach(el => {
+    el.classList.toggle('selected', el.dataset.plan === plan);
+  });
 }
+setSelectedPlan(selectedPlan);
+
+document.querySelectorAll('.plan-option').forEach(el => {
+  el.addEventListener('click', () => setSelectedPlan(el.dataset.plan));
+});
 
 document.getElementById('signupSubmit').addEventListener('click', async () => {
   const msgEl = document.getElementById('signupMsg');
-  const btn = document.getElementById('signupSubmit');
   const email = document.getElementById('signupEmail').value.trim();
-  // locationPicker is now a checklist (Remote + 50 states+DC) instead of a
-  // single-value <select> - a subscriber can check off more than one, and
-  // the checked values (already a fixed set: REMOTE_PREF or a state abbr)
-  // get sent as an array, matching what states.ts's matchesLocationPref()
-  // now expects on the alert-sending side (an OR across the array).
-  const locations = Array.from(document.querySelectorAll('#locationPicker input:checked')).map(el => el.value);
-  // Both boxes are checked by default - most people want both internship
-  // and entry-level alerts, and requiring them to opt in to something most
-  // people want by default would just be friction. Still validated below
-  // (a subscriber can uncheck both, which the DB's CHECK constraint also
-  // rejects - see migrations/012_add_subscriber_stages.sql) since "neither"
-  // isn't a meaningful preference the way "any location" is.
-  const stages = Array.from(document.querySelectorAll('#stagePicker input:checked')).map(el => el.value);
   const emailOk = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);
 
   msgEl.className = 'signup-msg error';
-
-  if (!subscribeClient) {
-    msgEl.textContent = "Signups aren't set up yet - check back soon.";
-    return;
-  }
-  if (stages.length === 0) {
-    msgEl.textContent = 'Pick internships, entry-level, or both.';
-    return;
-  }
   if (selectedCats.length === 0) {
     msgEl.textContent = 'Pick at least 1 category above.';
     return;
@@ -486,37 +617,159 @@ document.getElementById('signupSubmit').addEventListener('click', async () => {
     msgEl.textContent = 'Enter a valid email.';
     return;
   }
-
   msgEl.textContent = '';
-  btn.disabled = true;
-  btn.textContent = 'Submitting...';
+  pendingEmail = email;
 
-  // location is optional - nothing checked means "any location", so it's
-  // sent as null rather than an empty array (keeps the column meaningfully
-  // "unset" for anything that later reads it, e.g. matching alerts).
-  const { error } = await subscribeClient.from('subscribers').insert({
-    email,
-    categories: selectedCats,
-    location: locations.length ? locations : null,
-    stages,
-  });
+  // Best-effort only - a failure here (including "already exists") should
+  // never block getting to the actual upgrade/checkout step below.
+  if (subscribeClient) {
+    try {
+      await subscribeClient.from('subscribers').insert({
+        email,
+        categories: selectedCats,
+        stages: ['internship', 'entry-level'],
+        confirmed: false,
+      });
+    } catch (err) { /* non-fatal - see comment above */ }
+  }
 
-  if (error) {
-    // 23505 = unique_violation - they already signed up, which is a fine
-    // outcome (not a real error), so treat it the same as success rather
-    // than showing an error for something harmless.
-    if (error.code === '23505') {
-      showSignedUp();
-      return;
-    }
-    btn.disabled = false;
-    btn.textContent = 'Notify me';
-    msgEl.textContent = 'Something went wrong - try again in a moment.';
+  document.getElementById('signupForm').classList.add('hide');
+  document.getElementById('signupGated').classList.add('show');
+});
+
+// Shared by both the sidebar's upgradeBtn and the posting-click modal's
+// modalUpgradeBtn - same request, just reading the email from whichever
+// panel the visitor actually used.
+async function startCheckout(email, plan, btn, msgEl) {
+  msgEl.className = 'signup-msg error';
+  if (!email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    msgEl.textContent = 'Enter a valid email first.';
     return;
   }
 
-  showSignedUp();
+  msgEl.textContent = '';
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Redirecting to checkout...';
+
+  try {
+    const res = await fetch('/api/create-checkout-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, plan }),
+    });
+    const responseBody = await res.json();
+    if (!res.ok || !responseBody.url) {
+      throw new Error(responseBody.error || 'Could not start checkout');
+    }
+    window.location.href = responseBody.url;
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+    msgEl.textContent = err.message || 'Something went wrong - try again in a moment.';
+  }
+}
+
+document.getElementById('upgradeBtn').addEventListener('click', () => {
+  startCheckout(pendingEmail, selectedPlan, document.getElementById('upgradeBtn'), document.getElementById('upgradeMsg'));
 });
+
+document.getElementById('modalUpgradeBtn').addEventListener('click', () => {
+  const email = document.getElementById('modalEmail').value.trim();
+  pendingEmail = email;
+  startCheckout(email, selectedPlan, document.getElementById('modalUpgradeBtn'), document.getElementById('modalMsg'));
+});
+
+document.getElementById('modalClose').addEventListener('click', closePostingModal);
+document.getElementById('postingModal').addEventListener('click', (e) => {
+  if (e.target.id === 'postingModal') closePostingModal();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closePostingModal();
+});
+
+// --- "Already a subscriber?" - request a fresh magic link -------------
+document.getElementById('alreadySubToggle').addEventListener('click', () => {
+  document.getElementById('loginForm').classList.toggle('show');
+});
+
+document.getElementById('loginSubmit').addEventListener('click', async () => {
+  const btn = document.getElementById('loginSubmit');
+  const msgEl = document.getElementById('loginMsg');
+  const email = document.getElementById('loginEmail').value.trim();
+
+  msgEl.className = 'signup-msg error';
+  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    msgEl.textContent = 'Enter a valid email.';
+    return;
+  }
+
+  msgEl.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  try {
+    const res = await fetch('/api/request-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const responseBody = await res.json();
+    msgEl.className = 'signup-msg';
+    msgEl.textContent = responseBody.message || 'Check your inbox for a login link.';
+  } catch (err) {
+    msgEl.className = 'signup-msg error';
+    msgEl.textContent = 'Something went wrong - try again in a moment.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Email me my link';
+  }
+});
+
+document.getElementById('requestNewLinkBtn').addEventListener('click', () => {
+  document.getElementById('expiredBanner').classList.add('hide');
+  document.getElementById('loginForm').classList.add('show');
+  scrollToSignup();
+});
+
+// --- Login-token bootstrap ---------------------------------------------
+// Checks ?login=<token> first (from the magic-link email - see
+// src/api/webhook.ts and src/api/login.ts), falling back to whatever's
+// saved in localStorage from a previous visit. Only the TOKEN itself is
+// persisted client-side - fullData always lives in memory only, re-fetched
+// fresh on every page load, so there's no stale/sensitive posting data
+// sitting in localStorage.
+(async function initAuth() {
+  const params = new URLSearchParams(window.location.search);
+  let token = params.get('login');
+
+  if (token) {
+    try { localStorage.setItem('earlybird_login_token', token); } catch (err) { /* private browsing etc - fine, just won't persist */ }
+    params.delete('login');
+    const cleanQuery = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (cleanQuery ? '?' + cleanQuery : ''));
+  } else {
+    try { token = localStorage.getItem('earlybird_login_token'); } catch (err) { token = null; }
+  }
+
+  if (!token) return;
+
+  try {
+    const res = await fetch('/api/postings-full?login=' + encodeURIComponent(token));
+    if (!res.ok) throw new Error('not authorized');
+    const responseBody = await res.json();
+    fullData = responseBody.postings;
+    isPro = true;
+    document.getElementById('unlockedBanner').classList.remove('hide');
+    document.getElementById('locationFilter').style.display = '';
+    document.getElementById('signupCard').style.display = 'none';
+    document.getElementById('stats').textContent = fullData.length.toLocaleString() + ' open roles tracked, updated continuously';
+    render();
+  } catch (err) {
+    try { localStorage.removeItem('earlybird_login_token'); } catch (e2) { /* fine */ }
+    document.getElementById('expiredBanner').classList.remove('hide');
+  }
+})();
 </script>
 </body>
 </html>

@@ -23,8 +23,10 @@
 // file, which in practice means just /api/*.
 import { handleCreateCheckoutSession, type Env as CheckoutEnv } from "./api/checkout.js";
 import { handleStripeWebhook, type Env as WebhookEnv } from "./api/webhook.js";
+import { handleGetFullPostings, type Env as PostingsEnv } from "./api/postings.js";
+import { handleRequestLogin, type Env as LoginEnv } from "./api/login.js";
 
-type Env = CheckoutEnv & WebhookEnv & { ASSETS: Fetcher };
+type Env = CheckoutEnv & WebhookEnv & PostingsEnv & LoginEnv & { ASSETS: Fetcher };
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -36,6 +38,19 @@ export default {
 
     if (url.pathname === "/api/stripe-webhook" && request.method === "POST") {
       return handleStripeWebhook(request, env);
+    }
+
+    // Paywall API (2026-09-18): the free page (public/app.html) only ever
+    // ships title/stage/category/timestamp baked in at build time - full
+    // details (company, location, apply link, majors) are fetched live,
+    // only for a request carrying a valid paid subscriber's login_token.
+    // See src/api/postings.ts's top comment for the full auth model.
+    if (url.pathname === "/api/postings-full" && request.method === "GET") {
+      return handleGetFullPostings(request, env);
+    }
+
+    if (url.pathname === "/api/request-login" && request.method === "POST") {
+      return handleRequestLogin(request, env);
     }
 
     // Anything else that reaches the Worker (rather than being served
