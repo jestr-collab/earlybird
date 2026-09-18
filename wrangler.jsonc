@@ -21,5 +21,16 @@
   "assets": {
     "directory": "public",
     "binding": "ASSETS"
+  },
+  // Plain (non-secret) runtime vars, committed directly here instead of
+  // relying on the dashboard's "Variables and secrets" panel - Stripe price
+  // IDs aren't sensitive (they're visible in checkout URLs to anyone), and
+  // this guarantees every single `wrangler deploy` from CI actually has
+  // them, rather than depending on whatever state the dashboard happens to
+  // be in at deploy time (2026-09-18: dashboard-set vars weren't reliably
+  // reaching the running Worker even after a fresh deploy).
+  "vars": {
+    "STRIPE_PRICE_MONTHLY": "price_1UGRMMACXmLhiaFCrNYFFYnT",
+    "STRIPE_PRICE_SEMESTER": "price_1UGRMmACXmLhiaFCqKxnUMFU"
   }
 }
