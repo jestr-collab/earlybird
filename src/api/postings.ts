@@ -35,7 +35,7 @@ export async function handleGetFullPostings(request: Request, env: Env): Promise
 
   const { data: subscriber, error: subError } = await supabase
     .from("subscribers")
-    .select("id, is_paid, login_token_expires_at")
+    .select("id, is_paid, login_token_expires_at, plan, current_period_end")
     .eq("login_token", token)
     .maybeSingle();
 
@@ -84,10 +84,16 @@ export async function handleGetFullPostings(request: Request, env: Env): Promise
     from += PAGE_SIZE;
   }
 
-  return new Response(JSON.stringify({ postings }), {
-    status: 200,
-    headers: { "Content-Type": "application/json", "Cache-Control": "private, no-store" },
-  });
+  // plan/currentPeriodEnd are included purely so the client can show a
+  // "you're on the X plan, renews on Y" confirmation - not used for any
+  // access decision (is_paid above already gated the whole response).
+  return new Response(
+    JSON.stringify({ postings, plan: subscriber.plan ?? null, currentPeriodEnd: subscriber.current_period_end ?? null }),
+    {
+      status: 200,
+      headers: { "Content-Type": "application/json", "Cache-Control": "private, no-store" },
+    }
+  );
 }
 
 function jsonError(message: string, status: number): Response {

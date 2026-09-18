@@ -389,6 +389,7 @@ function renderHtml(
   </div>
   <div class="signup-card" id="proCard" style="display:none;">
     <h2>You're on Pro</h2>
+    <p class="signup-sub" id="proPlanLine"></p>
     <p class="signup-sub">Full listing unlocked — company, location, apply links, and real-time email alerts the moment a new posting matches your picks.</p>
     <p class="signup-hint">Using a new browser or lost your link? Use "Already a subscriber?" on this page (or your original confirmation email) to get a fresh one.</p>
   </div>
@@ -448,6 +449,21 @@ function formatMajors(majors) {
   const shown = majors.slice(0, MAX_MAJORS_SHOWN).join(', ');
   const extra = majors.length - MAX_MAJORS_SHOWN;
   return shown + (extra > 0 ? \` + \${extra} more\` : '');
+}
+
+// Purely a confirmation line ("yep, this is set up correctly") - never used
+// for any access decision, which is why postings-full still gates the
+// actual data on is_paid server-side regardless of what this displays.
+function formatPlanLine(plan, currentPeriodEnd) {
+  const planLabel = plan === 'semester' ? 'Semester ($49 / 3 months)' : 'Monthly ($19/mo)';
+  let renews = '';
+  if (currentPeriodEnd) {
+    const d = new Date(currentPeriodEnd);
+    if (!isNaN(d.getTime())) {
+      renews = ' — renews ' + d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+  }
+  return '<strong>' + planLabel + ' plan</strong>' + renews;
 }
 
 function scrollToSignup() {
@@ -771,6 +787,7 @@ document.getElementById('requestNewLinkBtn').addEventListener('click', () => {
     document.getElementById('locationFilter').style.display = '';
     document.getElementById('signupCard').style.display = 'none';
     document.getElementById('proCard').style.display = '';
+    document.getElementById('proPlanLine').innerHTML = formatPlanLine(responseBody.plan, responseBody.currentPeriodEnd);
     document.getElementById('stats').textContent = fullData.length.toLocaleString() + ' open roles tracked, updated continuously';
     render();
   } catch (err) {
