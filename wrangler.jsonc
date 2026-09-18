@@ -1,0 +1,25 @@
+{
+  // Committed on purpose (2026-09-18) - without a real wrangler.jsonc in
+  // the repo, `npx wrangler deploy` regenerates a throwaway one fresh
+  // inside Cloudflare's build container on every single build (see
+  // src/worker.ts's top comment), auto-declining Pages Functions setup
+  // every time and silently dropping the /api/* routes. This file is what
+  // makes the deploy deterministic instead of re-guessing project
+  // structure on every build.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "earlybird",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-09-18",
+  // The Stripe SDK and @supabase/supabase-js both touch a few Node built-ins
+  // internally even on code paths this project doesn't use (Buffer, etc) -
+  // without this flag those imports fail at Worker startup rather than at
+  // the one call site that might actually need them.
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "public",
+    "binding": "ASSETS"
+  }
+}
