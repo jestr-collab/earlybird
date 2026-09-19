@@ -45,6 +45,13 @@ const ACCOUNT_PATH = new URL("../public/account.html", import.meta.url);
 // that file gets overwritten by this script every 30 minutes.
 const LANDING_SRC = new URL("../static/landing.html", import.meta.url);
 const LANDING_PATH = new URL("../public/index.html", import.meta.url);
+// Same hand-authored-static-file pattern as the landing page above - plain
+// legal text, nothing templated, so it's tracked in static/ and just copied
+// into place on every build rather than regenerated.
+const TERMS_SRC = new URL("../static/terms.html", import.meta.url);
+const TERMS_PATH = new URL("../public/terms.html", import.meta.url);
+const PRIVACY_SRC = new URL("../static/privacy.html", import.meta.url);
+const PRIVACY_PATH = new URL("../public/privacy.html", import.meta.url);
 
 // Real-data catch (2026-09-13): this used to be a single query with
 // .limit(1000) - which felt generous when it was written, but company
@@ -135,6 +142,14 @@ async function main() {
   // Plain copy, not a template render: this page has no dynamic data in it.
   await copyFile(LANDING_SRC, LANDING_PATH);
   console.log(`Wrote ${LANDING_PATH.pathname} (copied from static/landing.html).`);
+
+  // Terms of Service + Privacy Policy - linked from the footer of every
+  // page and from both "Upgrade to Pro" flows. Edit static/terms.html /
+  // static/privacy.html directly, same as the landing page.
+  await copyFile(TERMS_SRC, TERMS_PATH);
+  console.log(`Wrote ${TERMS_PATH.pathname} (copied from static/terms.html).`);
+  await copyFile(PRIVACY_SRC, PRIVACY_PATH);
+  console.log(`Wrote ${PRIVACY_PATH.pathname} (copied from static/privacy.html).`);
 
   // The other half of the double opt-in flow (see send-confirmations.ts):
   // the link in that email points at <SITE_URL>/confirm.html, so this file
@@ -235,6 +250,12 @@ function renderHtml(
     padding: 0.55rem; font-size: 0.9rem; font-family: inherit; cursor: pointer;
   }
   .signup-btn:disabled { background: #99c2e8; cursor: default; }
+  .agree-row {
+    display: flex; align-items: flex-start; gap: 0.45rem; font-size: 0.78rem; color: #666;
+    line-height: 1.35; margin: 0.6rem 0; cursor: pointer;
+  }
+  .agree-row input[type="checkbox"] { margin-top: 0.15rem; flex-shrink: 0; }
+  .agree-row a { color: #06c; }
   .signup-msg { font-size: 0.78rem; margin-top: 0.6rem; min-height: 1em; }
   .signup-msg.error { color: #b3261e; }
   .signup-hint { font-size: 0.72rem; color: #999; margin-top: 0.5rem; }
@@ -388,7 +409,8 @@ function renderHtml(
         ${categories.map((c) => `<button type="button" class="cat-pill" data-cat="${c}">${c}</button>`).join("\n        ")}
       </div>
       <input id="signupEmail" type="email" placeholder="you@school.edu">
-      <button id="signupSubmit" class="signup-btn">Continue</button>
+      <label class="agree-row"><input type="checkbox" id="signupAgree"> I agree to the <a href="/terms.html" target="_blank" onclick="event.stopPropagation()">Terms</a> and <a href="/privacy.html" target="_blank" onclick="event.stopPropagation()">Privacy Policy</a>.</label>
+      <button id="signupSubmit" class="signup-btn" disabled>Continue</button>
       <div id="signupMsg" class="signup-msg"></div>
     </div>
     <div class="signup-gated" id="signupGated">
@@ -443,7 +465,8 @@ function renderHtml(
       <div class="plan-option" data-plan="monthly"><span class="plan-price">$19</span><span class="plan-period">per month</span></div>
       <div class="plan-option" data-plan="semester"><span class="plan-price">$49</span><span class="plan-period">per 3 months</span></div>
     </div>
-    <button id="modalUpgradeBtn" class="upgrade-btn">Upgrade to Pro</button>
+    <label class="agree-row"><input type="checkbox" id="modalAgree"> I agree to the <a href="/terms.html" target="_blank">Terms</a> and <a href="/privacy.html" target="_blank">Privacy Policy</a>.</label>
+    <button id="modalUpgradeBtn" class="upgrade-btn" disabled>Upgrade to Pro</button>
     <div id="modalMsg" class="signup-msg"></div>
   </div>
 </div>
@@ -459,7 +482,7 @@ function renderHtml(
   </div>
 </div>
 
-<footer class="site-footer">earlybird — built for students hunting for their next internship.</footer>
+<footer class="site-footer">earlybird — built for students hunting for their next internship. · <a href="/terms.html">Terms</a> · <a href="/privacy.html">Privacy</a></footer>
 
 <script>
 // Real paywall (2026-09-18): "data" baked in here is already the free-safe
@@ -793,6 +816,19 @@ setSelectedPlan(selectedPlan);
 
 document.querySelectorAll('.plan-option').forEach(el => {
   el.addEventListener('click', () => setSelectedPlan(el.dataset.plan));
+});
+
+// Both entry points into a real (paid) checkout - the sidebar's "Continue"
+// step and the locked-posting modal's "Upgrade to Pro" - require an active
+// checkbox click before their button is even clickable, not just a passive
+// "by continuing you agree" line next to it. See the ui/legal discussion
+// this came from: a required checkbox (clickwrap) is the pattern that
+// actually holds up as evidence of agreement, unlike text alone.
+document.getElementById('signupAgree').addEventListener('change', (e) => {
+  document.getElementById('signupSubmit').disabled = !e.target.checked;
+});
+document.getElementById('modalAgree').addEventListener('change', (e) => {
+  document.getElementById('modalUpgradeBtn').disabled = !e.target.checked;
 });
 
 document.getElementById('signupSubmit').addEventListener('click', async () => {
@@ -1233,6 +1269,7 @@ function renderAccountHtml(): string {
 <div class="brand"><svg class="brand-bird" width="26" height="19" viewBox="0 0 28 20" fill="#06c" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><ellipse cx="13" cy="13" rx="7" ry="5"/><circle cx="20" cy="9" r="3.2"/><polygon points="23,8.3 27,7.3 23,10.3"/><polygon points="6,13 1,9 6,16"/><circle cx="20.6" cy="8.2" r="0.7" fill="#fff"/></svg>earlybird</div>
 <div class="card"><div id="status">Loading your account...</div></div>
 <a class="back-link" href="/app.html">&larr; Back to listings</a>
+<p class="back-link" style="margin-top:0.4rem;"><a href="/terms.html">Terms</a> · <a href="/privacy.html">Privacy</a></p>
 <script>
 let currentToken = null;
 
