@@ -352,6 +352,7 @@ function renderHtml(
 <header class="site-header">
   <div class="brand"><svg class="brand-bird" width="26" height="19" viewBox="0 0 28 20" fill="#06c" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><ellipse cx="13" cy="13" rx="7" ry="5"/><circle cx="20" cy="9" r="3.2"/><polygon points="23,8.3 27,7.3 23,10.3"/><polygon points="6,13 1,9 6,16"/><circle cx="20.6" cy="8.2" r="0.7" fill="#fff"/></svg>earlybird</div>
   <p class="tagline">New internship &amp; entry-level postings, the moment they go live.</p>
+  <button type="button" id="signInLink" class="account-link" style="background:none; border:none; cursor:pointer;">Sign in</button>
   <a href="/account.html" id="accountLink" class="account-link" style="display:none;">My Account</a>
 </header>
 <div class="stats" id="stats">${postings.length.toLocaleString()} open roles tracked — titles and posting time are free, full details are Pro</div>
@@ -439,6 +440,17 @@ function renderHtml(
     </div>
     <button id="modalUpgradeBtn" class="upgrade-btn">Upgrade to Pro</button>
     <div id="modalMsg" class="signup-msg"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="signInModal">
+  <div class="modal-card">
+    <button type="button" class="modal-close" id="signInModalClose" aria-label="Close">&times;</button>
+    <h3>Sign in</h3>
+    <p>Enter the email you subscribed with and we'll send you a link to unlock the full listing.</p>
+    <input id="signInEmail" type="email" placeholder="you@school.edu">
+    <button id="signInSubmitBtn" class="signup-btn">Email me my link</button>
+    <div id="signInMsg" class="signup-msg"></div>
   </div>
 </div>
 
@@ -559,7 +571,10 @@ document.getElementById('proCatsSaveBtn').addEventListener('click', async () => 
     });
     const responseBody = await res.json();
     if (!res.ok) throw new Error(responseBody.error || 'Could not save');
-    proCategories = proEditSelectedCats.slice();
+    // Trust what the server actually saved (it echoes back the sanitized
+    // list) rather than the client's optimistic copy, so any drift shows up
+    // immediately instead of silently masking a bug.
+    proCategories = Array.isArray(responseBody.categories) ? responseBody.categories : proEditSelectedCats.slice();
     renderProCats();
     document.getElementById('proCatsEdit').classList.remove('show');
     document.getElementById('proCatsView').style.display = '';
@@ -696,12 +711,21 @@ let selectedPlan = 'monthly';
 let pendingEmail = null;
 
 function renderCategoryPicker() {
-  document.querySelectorAll('.cat-pill').forEach(btn => {
+  // Scoped to #categoryPicker (the free-tier signup form's own pills) -
+  // previously an unscoped '.cat-pill' selector here also matched the Pro
+  // card's "Edit categories" pills (#proCategoryPicker), which share the
+  // same class. That meant every click on a Pro category pill ALSO fired
+  // this handler and repainted every .cat-pill on the page (Pro card
+  // included) based on the free-tier's own unrelated selectedCats array -
+  // visually un-highlighting Pro categories the subscriber never touched,
+  // right after they clicked something else. That's what looked like
+  // "can't remove old categories."
+  document.querySelectorAll('#categoryPicker .cat-pill').forEach(btn => {
     btn.classList.toggle('selected', selectedCats.includes(btn.dataset.cat));
   });
 }
 
-document.querySelectorAll('.cat-pill').forEach(btn => {
+document.querySelectorAll('#categoryPicker .cat-pill').forEach(btn => {
   btn.addEventListener('click', () => {
     const cat = btn.dataset.cat;
     const idx = selectedCats.indexOf(cat);
@@ -813,7 +837,55 @@ document.getElementById('postingModal').addEventListener('click', (e) => {
   if (e.target.id === 'postingModal') closePostingModal();
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closePostingModal();
+  if (e.key === 'Escape') { closePostingModal(); closeSignInModal(); }
+});
+
+// --- "Sign in" (header) - returning Pro subscriber gets a fresh magic link,
+// no free-tier signup pitch/category picker in the way. Same
+// /api/request-login endpoint as the sidebar's "Already a subscriber?" box -
+// just a more direct entry point for someone who's already paying.
+function openSignInModal() {
+  document.getElementById('signInModal').classList.add('show');
+  document.getElementById('signInMsg').textContent = '';
+  document.getElementById('signInEmail').focus();
+}
+function closeSignInModal() {
+  document.getElementById('signInModal').classList.remove('show');
+}
+document.getElementById('signInLink').addEventListener('click', openSignInModal);
+document.getElementById('signInModalClose').addEventListener('click', closeSignInModal);
+document.getElementById('signInModal').addEventListener('click', (e) => {
+  if (e.target.id === 'signInModal') closeSignInModal();
+});
+document.getElementById('signInSubmitBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('signInSubmitBtn');
+  const msgEl = document.getElementById('signInMsg');
+  const email = document.getElementById('signInEmail').value.trim();
+
+  msgEl.className = 'signup-msg error';
+  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    msgEl.textContent = 'Enter a valid email.';
+    return;
+  }
+  msgEl.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+  try {
+    const res = await fetch('/api/request-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const responseBody = await res.json();
+    msgEl.className = 'signup-msg';
+    msgEl.textContent = responseBody.message || 'Check your inbox for a login link.';
+  } catch (err) {
+    msgEl.className = 'signup-msg error';
+    msgEl.textContent = 'Something went wrong - try again in a moment.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Email me my link';
+  }
 });
 
 // --- "Already a subscriber?" - request a fresh magic link -------------
@@ -895,6 +967,7 @@ document.getElementById('requestNewLinkBtn').addEventListener('click', () => {
     document.getElementById('signupCard').style.display = 'none';
     document.getElementById('proCard').style.display = '';
     document.getElementById('accountLink').style.display = '';
+    document.getElementById('signInLink').style.display = 'none';
     renderProCats();
     document.getElementById('stats').textContent = fullData.length.toLocaleString() + ' open roles tracked, updated continuously';
     render();
