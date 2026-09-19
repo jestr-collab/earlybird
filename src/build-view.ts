@@ -942,17 +942,27 @@ document.getElementById('requestNewLinkBtn').addEventListener('click', () => {
 (async function initAuth() {
   const params = new URLSearchParams(window.location.search);
   let token = params.get('login');
+  // Landing page's "Sign in" link sends people here as /app.html?signin=1 -
+  // open the sign-in modal directly rather than making them find it again.
+  const wantsSignIn = params.has('signin');
+
+  if (token || wantsSignIn) {
+    params.delete('login');
+    params.delete('signin');
+    const cleanQuery = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (cleanQuery ? '?' + cleanQuery : ''));
+  }
 
   if (token) {
     try { localStorage.setItem('earlybird_login_token', token); } catch (err) { /* private browsing etc - fine, just won't persist */ }
-    params.delete('login');
-    const cleanQuery = params.toString();
-    window.history.replaceState({}, '', window.location.pathname + (cleanQuery ? '?' + cleanQuery : ''));
   } else {
     try { token = localStorage.getItem('earlybird_login_token'); } catch (err) { token = null; }
   }
 
-  if (!token) return;
+  if (!token) {
+    if (wantsSignIn) openSignInModal();
+    return;
+  }
 
   try {
     const res = await fetch('/api/postings-full?login=' + encodeURIComponent(token));
