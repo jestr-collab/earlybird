@@ -14,9 +14,15 @@ export interface Env {
   SUPABASE_SERVICE_ROLE_KEY: string;
 }
 
+const VALID_STAGES = ["internship", "entry-level"];
+
 interface UpdatePreferencesBody {
   login: string;
   categories: string[];
+  // Optional so older clients (or a request that only wants to change
+  // categories) don't have to send it - when omitted, stages is left
+  // untouched.
+  stages?: string[];
 }
 
 export async function handleUpdatePreferences(request: Request, env: Env): Promise<Response> {
@@ -37,6 +43,20 @@ export async function handleUpdatePreferences(request: Request, env: Env): Promi
     : [];
   if (categories.length === 0) {
     return jsonError("Pick at least 1 category", 400);
+  }
+
+  // Same sanitize-and-dedupe treatment as categories, but also constrained
+  // to the two values the DB's CHECK constraint allows (see
+  // send-alerts.ts's SubscriberRow comment). undefined means "don't touch
+  // stages this request" - distinct from an empty array, which is rejected.
+  let stages: string[] | undefined;
+  if (body.stages !== undefined) {
+    stages = Array.isArray(body.stages)
+      ? Array.from(new Set(body.stages.filter((s): s is string => VALID_STAGES.includes(s))))
+      : [];
+    if (stages.length === 0) {
+      return jsonError("Pick at least 1 stage (internship and/or entry-level)", 400);
+    }
   }
 
   const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
@@ -61,17 +81,17 @@ export async function handleUpdatePreferences(request: Request, env: Env): Promi
     return jsonError("This login link has expired - request a new one", 401);
   }
 
-  const { error: updateError } = await supabase
-    .from("subscribers")
-    .update({ categories })
-    .eq("id", subscriber.id);
+  const updatePayload: { categories: string[]; stages?: string[] } = { categories };
+  if (stages !== undefined) updatePayload.stages = stages;
+
+  const { error: updateError } = await supabase.from("subscribers").update(updatePayload).eq("id", subscriber.id);
 
   if (updateError) {
     console.error("[update-preferences] update failed:", updateError.message);
     return jsonError("Could not save your preferences", 500);
   }
 
-  return new Response(JSON.stringify({ ok: true, categories }), {
+  return new Response(JSON.stringify({ ok: true, categories, ...(stages !== undefined ? { stages } : {}) }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });

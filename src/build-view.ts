@@ -414,11 +414,16 @@ function renderHtml(
     <p class="signup-sub">Full listing unlocked — company, location, apply links, and real-time email alerts the moment a new posting matches your picks.</p>
     <div id="proCatsView">
       <p class="pro-cats-list">Getting alerts for: <strong id="proCatsList"></strong></p>
-      <button type="button" class="link-btn" id="proCatsEditBtn">Edit categories</button>
+      <p class="pro-cats-list">Stage: <strong id="proStagesList"></strong></p>
+      <button type="button" class="link-btn" id="proCatsEditBtn">Edit preferences</button>
     </div>
     <div class="pro-cats-edit" id="proCatsEdit">
       <div class="category-picker" id="proCategoryPicker">
         ${categories.map((c) => `<button type="button" class="cat-pill" data-cat="${c}">${c}</button>`).join("\n        ")}
+      </div>
+      <div class="category-picker" id="proStagePicker" style="margin-top: 0.6rem;">
+        <button type="button" class="cat-pill" data-stage="internship">Internship</button>
+        <button type="button" class="cat-pill" data-stage="entry-level">Entry-level</button>
       </div>
       <button id="proCatsSaveBtn" class="signup-btn">Save</button>
       <button type="button" class="link-btn" id="proCatsCancelBtn" style="display:block; margin: 0.6rem auto 0;">Cancel</button>
@@ -471,6 +476,7 @@ let isPro = false;
 // authenticated (the token IS the credential, no separate session/cookie).
 let proLoginToken = null;
 let proCategories = [];
+let proStages = [];
 
 function currentData() { return (isPro && fullData) ? fullData : freeData; }
 
@@ -514,11 +520,19 @@ function formatPlanLine(plan, currentPeriodEnd) {
   return '<strong>' + planLabel + ' plan</strong>' + renews;
 }
 
+const STAGE_LABELS = { internship: 'Internship', 'entry-level': 'Entry-level' };
+function formatStages(stages) {
+  if (!stages || stages.length === 0) return '(none selected)';
+  return stages.map(s => STAGE_LABELS[s] || s).join(' + ');
+}
+
 function renderProCats() {
   document.getElementById('proCatsList').textContent = proCategories.length ? proCategories.join(', ') : '(none selected)';
+  document.getElementById('proStagesList').textContent = formatStages(proStages);
 }
 
 let proEditSelectedCats = [];
+let proEditSelectedStages = [];
 
 function renderProCatPicker() {
   document.querySelectorAll('#proCategoryPicker .cat-pill').forEach(btn => {
@@ -526,9 +540,17 @@ function renderProCatPicker() {
   });
 }
 
+function renderProStagePicker() {
+  document.querySelectorAll('#proStagePicker .cat-pill').forEach(btn => {
+    btn.classList.toggle('selected', proEditSelectedStages.includes(btn.dataset.stage));
+  });
+}
+
 document.getElementById('proCatsEditBtn').addEventListener('click', () => {
   proEditSelectedCats = proCategories.slice();
+  proEditSelectedStages = proStages.slice();
   renderProCatPicker();
+  renderProStagePicker();
   document.getElementById('proCatsMsg').textContent = '';
   document.getElementById('proCatsView').style.display = 'none';
   document.getElementById('proCatsEdit').classList.add('show');
@@ -552,12 +574,29 @@ document.querySelectorAll('#proCategoryPicker .cat-pill').forEach(btn => {
   });
 });
 
+document.querySelectorAll('#proStagePicker .cat-pill').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const stage = btn.dataset.stage;
+    const idx = proEditSelectedStages.indexOf(stage);
+    if (idx >= 0) {
+      proEditSelectedStages.splice(idx, 1);
+    } else {
+      proEditSelectedStages.push(stage);
+    }
+    renderProStagePicker();
+  });
+});
+
 document.getElementById('proCatsSaveBtn').addEventListener('click', async () => {
   const btn = document.getElementById('proCatsSaveBtn');
   const msgEl = document.getElementById('proCatsMsg');
   msgEl.className = 'signup-msg error';
   if (proEditSelectedCats.length === 0) {
     msgEl.textContent = 'Pick at least 1 category.';
+    return;
+  }
+  if (proEditSelectedStages.length === 0) {
+    msgEl.textContent = 'Pick at least 1 stage (internship and/or entry-level).';
     return;
   }
   msgEl.textContent = '';
@@ -567,14 +606,15 @@ document.getElementById('proCatsSaveBtn').addEventListener('click', async () => 
     const res = await fetch('/api/update-preferences', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ login: proLoginToken, categories: proEditSelectedCats }),
+      body: JSON.stringify({ login: proLoginToken, categories: proEditSelectedCats, stages: proEditSelectedStages }),
     });
     const responseBody = await res.json();
     if (!res.ok) throw new Error(responseBody.error || 'Could not save');
     // Trust what the server actually saved (it echoes back the sanitized
-    // list) rather than the client's optimistic copy, so any drift shows up
+    // lists) rather than the client's optimistic copy, so any drift shows up
     // immediately instead of silently masking a bug.
     proCategories = Array.isArray(responseBody.categories) ? responseBody.categories : proEditSelectedCats.slice();
+    proStages = Array.isArray(responseBody.stages) ? responseBody.stages : proEditSelectedStages.slice();
     renderProCats();
     document.getElementById('proCatsEdit').classList.remove('show');
     document.getElementById('proCatsView').style.display = '';
@@ -972,6 +1012,7 @@ document.getElementById('requestNewLinkBtn').addEventListener('click', () => {
     isPro = true;
     proLoginToken = token;
     proCategories = Array.isArray(responseBody.categories) ? responseBody.categories : [];
+    proStages = Array.isArray(responseBody.stages) && responseBody.stages.length ? responseBody.stages : ['internship', 'entry-level'];
     document.getElementById('unlockedBanner').classList.remove('hide');
     document.getElementById('locationFilter').style.display = '';
     document.getElementById('signupCard').style.display = 'none';
