@@ -342,10 +342,14 @@ function renderHtml(
     background: #e6f7ec; color: #1a7a3f; text-align: center; font-size: 0.82rem;
     padding: 0.5rem 1rem; border-radius: 8px; margin-bottom: 1rem;
   }
-  .unlocked-banner.hide, .free-banner.hide { display: none; }
+  .unlocked-banner.hide, .free-banner.hide, .pending-banner.hide { display: none; }
   .free-banner {
     background: #fff3cd; color: #7a5c00; font-size: 0.8rem; line-height: 1.4;
     padding: 0.6rem 0.9rem; border-radius: 8px; margin-bottom: 1rem;
+  }
+  .pending-banner {
+    background: #eef4fc; color: #06c; text-align: center; font-size: 0.82rem;
+    padding: 0.5rem 1rem; border-radius: 8px; margin-bottom: 1rem;
   }
 
   .signup-gated { text-align: center; display: none; padding: 0.5rem 0; }
@@ -397,6 +401,7 @@ function renderHtml(
 </header>
 <div class="stats" id="stats">${postings.length.toLocaleString()} open roles tracked — titles and posting time are free, full details are Pro</div>
 
+<div class="pending-banner hide" id="pendingBanner">Confirming your Pro access…</div>
 <div class="unlocked-banner hide" id="unlockedBanner">You're on Pro — full listing unlocked.</div>
 <div class="free-banner hide" id="expiredBanner">Your Pro link expired or wasn't recognized — showing the free view. <button type="button" class="row-lock" id="requestNewLinkBtn" style="margin-left:0.4rem;">Get a new link</button></div>
 
@@ -423,6 +428,9 @@ function renderHtml(
 </main>
 
 <aside class="sidebar">
+  <div class="signup-card" id="loadingCard" style="display:none; text-align:center;">
+    <p class="signup-sub" style="margin:0;">Confirming your Pro access…</p>
+  </div>
   <div class="signup-card" id="signupCard">
     <div class="signup-form" id="signupForm">
       <h2>Get full access</h2>
@@ -1105,6 +1113,20 @@ document.getElementById('requestNewLinkBtn').addEventListener('click', () => {
     return;
   }
 
+  // A token is present (fresh magic-link click, post-checkout, or a
+  // returning visit) - swap the "pay to unlock" CTA out for a neutral
+  // loading state IMMEDIATELY, synchronously, before the fetch below even
+  // starts. Previously the default free-tier signup card (with its
+  // "Upgrade to Pro" button) stayed on screen for however long
+  // /api/postings-full took to return - which, for someone who just paid,
+  // reads as "did my payment not go through?" for a few genuinely alarming
+  // seconds. This doesn't make the fetch faster, but it replaces "still
+  // looks paywalled" with an explicit "we see you, confirming" message,
+  // which is what actually matters for not panicking someone mid-checkout.
+  document.getElementById('pendingBanner').classList.remove('hide');
+  document.getElementById('signupCard').style.display = 'none';
+  document.getElementById('loadingCard').style.display = '';
+
   try {
     const res = await fetch('/api/postings-full?login=' + encodeURIComponent(token));
     if (!res.ok) throw new Error('not authorized');
@@ -1114,9 +1136,10 @@ document.getElementById('requestNewLinkBtn').addEventListener('click', () => {
     proLoginToken = token;
     proCategories = Array.isArray(responseBody.categories) ? responseBody.categories : [];
     proStages = Array.isArray(responseBody.stages) && responseBody.stages.length ? responseBody.stages : ['internship', 'entry-level'];
+    document.getElementById('pendingBanner').classList.add('hide');
+    document.getElementById('loadingCard').style.display = 'none';
     document.getElementById('unlockedBanner').classList.remove('hide');
     document.getElementById('locationFilter').style.display = '';
-    document.getElementById('signupCard').style.display = 'none';
     document.getElementById('proCard').style.display = '';
     document.getElementById('accountLink').style.display = '';
     document.getElementById('signInLink').style.display = 'none';
@@ -1126,6 +1149,9 @@ document.getElementById('requestNewLinkBtn').addEventListener('click', () => {
     render();
   } catch (err) {
     try { localStorage.removeItem('earlybird_login_token'); } catch (e2) { /* fine */ }
+    document.getElementById('pendingBanner').classList.add('hide');
+    document.getElementById('loadingCard').style.display = 'none';
+    document.getElementById('signupCard').style.display = '';
     document.getElementById('expiredBanner').classList.remove('hide');
   }
 })();
