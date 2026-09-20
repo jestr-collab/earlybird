@@ -229,7 +229,18 @@ function renderHtml(
   .stage.internship { background: #e6f7ec; color: #1a7a3f; }
   .stage.entry-level { background: #fdf0e0; color: #a15c07; }
   .reason { color: #aaa; }
-  #count { font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; }
+  #count { font-size: 0.85rem; color: #666; }
+  .count-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.5rem; }
+  /* "Set alerts" - a real, always-reachable entry point into the signup
+     flow, not just the sidebar. On mobile the sidebar sits below every
+     single posting (see .sidebar's @media rule) - with 5,000+ rows above
+     it, "scroll to the sidebar" is not a realistic path to conversion on a
+     phone. Hidden once someone's already Pro (initAuth() below) since
+     they already have alerts set up. */
+  .set-alerts-link {
+    background: none; border: none; color: #06c; font-family: inherit; font-size: 0.85rem;
+    cursor: pointer; padding: 0; text-decoration: underline; white-space: nowrap;
+  }
 
   /* Signup panel - same visual language as the listing above it (same
      font, same .cat pill shape/colors, same border/radius scale) rather
@@ -304,7 +315,15 @@ function renderHtml(
      below the fold). */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(20,20,25,0.45); z-index: 1000; align-items: center; justify-content: center; padding: 1rem; }
   .modal-overlay.show { display: flex; }
-  .modal-card { background: #fff; border-radius: 12px; padding: 1.5rem; max-width: 340px; width: 100%; position: relative; box-shadow: 0 12px 40px rgba(0,0,0,0.25); }
+  .modal-card {
+    background: #fff; border-radius: 12px; padding: 1.5rem; max-width: 340px; width: 100%; position: relative;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+    /* The category picker added to this modal pushes total content height
+       past the viewport on a short phone screen (e.g. iPhone SE) with the
+       keyboard also up for the email field - without this the plan picker
+       and "Upgrade to Pro" button could end up clipped, unreachable. */
+    max-height: 90vh; overflow-y: auto;
+  }
   .modal-card h3 { margin: 0 0 0.4rem; font-size: 1.05rem; }
   .modal-card p { font-size: 0.82rem; color: #666; margin: 0 0 1rem; line-height: 1.45; }
   .modal-card input { width: 100%; box-sizing: border-box; margin-bottom: 0.7rem; font-family: inherit; }
@@ -396,7 +415,10 @@ function renderHtml(
     ${categories.map((c) => `<option value="${c}">${c}</option>`).join("\n    ")}
   </select>
 </div>
-<div id="count"></div>
+<div class="count-row">
+  <div id="count"></div>
+  <button type="button" id="setAlertsLink" class="set-alerts-link">Set alerts</button>
+</div>
 <div id="list"></div>
 </main>
 
@@ -459,7 +481,10 @@ function renderHtml(
   <div class="modal-card">
     <button type="button" class="modal-close" id="modalClose" aria-label="Close">&times;</button>
     <h3>Unlock full access</h3>
-    <p>Company, location, the apply link, and real-time email alerts for this posting (and every match going forward) are part of Pro.</p>
+    <p>Company, location, the apply link, and real-time email alerts the moment a new posting matches your picks are part of Pro.</p>
+    <div class="category-picker" id="modalCategoryPicker">
+      ${categories.map((c) => `<button type="button" class="cat-pill" data-cat="${c}">${c}</button>`).join("\n      ")}
+    </div>
     <input id="modalEmail" type="email" placeholder="you@school.edu">
     <div class="plan-picker" id="modalPlanPicker">
       <div class="plan-option" data-plan="monthly"><span class="plan-price">$19</span><span class="plan-period">per month</span></div>
@@ -674,6 +699,7 @@ function openPostingModal() {
   const modalEmailInput = document.getElementById('modalEmail');
   if (pendingEmail && !modalEmailInput.value) modalEmailInput.value = pendingEmail;
   setSelectedPlan(selectedPlan); // sync the modal's plan picker to whatever's already chosen
+  renderCategoryPicker(); // sync the modal's category pills to selectedCats
   modalEmailInput.focus();
 }
 
@@ -783,22 +809,31 @@ function renderCategoryPicker() {
   // visually un-highlighting Pro categories the subscriber never touched,
   // right after they clicked something else. That's what looked like
   // "can't remove old categories."
-  document.querySelectorAll('#categoryPicker .cat-pill').forEach(btn => {
+  // Also syncs #modalCategoryPicker (the "Set alerts" / locked-row modal's
+  // own pills) - same selectedCats array, so picking categories in either
+  // place keeps both in sync and whichever one a visitor opens next shows
+  // their real current picks instead of starting blank.
+  document.querySelectorAll('#categoryPicker .cat-pill, #modalCategoryPicker .cat-pill').forEach(btn => {
     btn.classList.toggle('selected', selectedCats.includes(btn.dataset.cat));
   });
 }
 
+function toggleSelectedCat(cat) {
+  const idx = selectedCats.indexOf(cat);
+  if (idx >= 0) {
+    selectedCats.splice(idx, 1);
+  } else {
+    selectedCats.push(cat);
+  }
+  renderCategoryPicker();
+}
+
 document.querySelectorAll('#categoryPicker .cat-pill').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const cat = btn.dataset.cat;
-    const idx = selectedCats.indexOf(cat);
-    if (idx >= 0) {
-      selectedCats.splice(idx, 1);
-    } else {
-      selectedCats.push(cat);
-    }
-    renderCategoryPicker();
-  });
+  btn.addEventListener('click', () => toggleSelectedCat(btn.dataset.cat));
+});
+
+document.querySelectorAll('#modalCategoryPicker .cat-pill').forEach(btn => {
+  btn.addEventListener('click', () => toggleSelectedCat(btn.dataset.cat));
 });
 
 // Shared across BOTH plan pickers (sidebar's #planPicker and the modal's
@@ -902,13 +937,43 @@ document.getElementById('upgradeBtn').addEventListener('click', () => {
   startCheckout(pendingEmail, selectedPlan, document.getElementById('upgradeBtn'), document.getElementById('upgradeMsg'));
 });
 
-document.getElementById('modalUpgradeBtn').addEventListener('click', () => {
+document.getElementById('modalUpgradeBtn').addEventListener('click', async () => {
+  const msgEl = document.getElementById('modalMsg');
   const email = document.getElementById('modalEmail').value.trim();
+
+  // Modal now opens from two places: a locked-row click (which never
+  // required categories before) and the new "Set alerts" link (which never
+  // touches the sidebar's category picker at all) - either way, this is
+  // now the first and possibly only place a visitor picks categories, so
+  // it needs the same guard + best-effort seed as signupSubmit above.
+  // Without this, someone who opens Pro straight from this modal with no
+  // prior sidebar interaction has an empty selectedCats, and the Stripe
+  // webhook's "no existing row" fallback would silently sign them up for
+  // every category instead of the ones they actually want alerts for.
+  msgEl.className = 'signup-msg error';
+  if (selectedCats.length === 0) {
+    msgEl.textContent = 'Pick at least 1 category above.';
+    return;
+  }
+  msgEl.textContent = '';
   pendingEmail = email;
-  startCheckout(email, selectedPlan, document.getElementById('modalUpgradeBtn'), document.getElementById('modalMsg'));
+
+  if (subscribeClient) {
+    try {
+      await subscribeClient.from('subscribers').insert({
+        email,
+        categories: selectedCats,
+        stages: ['internship', 'entry-level'],
+        confirmed: false,
+      });
+    } catch (err) { /* non-fatal - see signupSubmit's comment above */ }
+  }
+
+  startCheckout(email, selectedPlan, document.getElementById('modalUpgradeBtn'), msgEl);
 });
 
 document.getElementById('modalClose').addEventListener('click', closePostingModal);
+document.getElementById('setAlertsLink').addEventListener('click', openPostingModal);
 document.getElementById('postingModal').addEventListener('click', (e) => {
   if (e.target.id === 'postingModal') closePostingModal();
 });
@@ -1055,6 +1120,7 @@ document.getElementById('requestNewLinkBtn').addEventListener('click', () => {
     document.getElementById('proCard').style.display = '';
     document.getElementById('accountLink').style.display = '';
     document.getElementById('signInLink').style.display = 'none';
+    document.getElementById('setAlertsLink').style.display = 'none';
     renderProCats();
     document.getElementById('stats').textContent = fullData.length.toLocaleString() + ' open roles tracked, updated continuously';
     render();
