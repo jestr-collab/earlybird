@@ -35,7 +35,7 @@ export async function handleGetFullPostings(request: Request, env: Env): Promise
 
   const { data: subscriber, error: subError } = await supabase
     .from("subscribers")
-    .select("id, is_paid, login_token_expires_at, plan, current_period_end, categories, stages")
+    .select("id, is_paid, login_token_expires_at, plan, current_period_end, categories, stages, location")
     .eq("login_token", token)
     .maybeSingle();
 
@@ -94,6 +94,7 @@ export async function handleGetFullPostings(request: Request, env: Env): Promise
       currentPeriodEnd: subscriber.current_period_end ?? null,
       categories: subscriber.categories ?? [],
       stages: subscriber.stages ?? [],
+      location: subscriber.location ?? [],
     }),
     {
       status: 200,

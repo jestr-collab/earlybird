@@ -8,6 +8,7 @@
 // checkout time and isn't editable here.
 
 import { createClient } from "@supabase/supabase-js";
+import { US_STATES, REMOTE_PREF } from "../states.js";
 
 export interface Env {
   SUPABASE_URL: string;
@@ -15,6 +16,7 @@ export interface Env {
 }
 
 const VALID_STAGES = ["internship", "entry-level"];
+const VALID_LOCATIONS = new Set([REMOTE_PREF, ...US_STATES.map((s) => s.abbr)]);
 
 interface UpdatePreferencesBody {
   login: string;
@@ -23,6 +25,11 @@ interface UpdatePreferencesBody {
   // categories) don't have to send it - when omitted, stages is left
   // untouched.
   stages?: string[];
+  // Same "omitted = untouched" convention as stages, but unlike categories
+  // and stages an empty array here IS a valid, meaningful value ("any
+  // location" - see states.ts's matchesLocationPref) rather than an error,
+  // so a subscriber can deliberately clear their location filter.
+  location?: string[];
 }
 
 export async function handleUpdatePreferences(request: Request, env: Env): Promise<Response> {
@@ -59,6 +66,17 @@ export async function handleUpdatePreferences(request: Request, env: Env): Promi
     }
   }
 
+  // Sanitize-and-dedupe like the two above, but no "must pick at least 1"
+  // check - an empty array is exactly what "any location" means to the
+  // matching logic (see states.ts's matchesLocationPref), so it's a valid
+  // save, not a rejected one.
+  let location: string[] | undefined;
+  if (body.location !== undefined) {
+    location = Array.isArray(body.location)
+      ? Array.from(new Set(body.location.filter((l): l is string => typeof l === "string" && VALID_LOCATIONS.has(l))))
+      : [];
+  }
+
   const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
   const { data: subscriber, error: subError } = await supabase
@@ -81,8 +99,9 @@ export async function handleUpdatePreferences(request: Request, env: Env): Promi
     return jsonError("This login link has expired - request a new one", 401);
   }
 
-  const updatePayload: { categories: string[]; stages?: string[] } = { categories };
+  const updatePayload: { categories: string[]; stages?: string[]; location?: string[] } = { categories };
   if (stages !== undefined) updatePayload.stages = stages;
+  if (location !== undefined) updatePayload.location = location;
 
   const { error: updateError } = await supabase.from("subscribers").update(updatePayload).eq("id", subscriber.id);
 
@@ -91,10 +110,18 @@ export async function handleUpdatePreferences(request: Request, env: Env): Promi
     return jsonError("Could not save your preferences", 500);
   }
 
-  return new Response(JSON.stringify({ ok: true, categories, ...(stages !== undefined ? { stages } : {}) }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
+  return new Response(
+    JSON.stringify({
+      ok: true,
+      categories,
+      ...(stages !== undefined ? { stages } : {}),
+      ...(location !== undefined ? { location } : {}),
+    }),
+    {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }
+  );
 }
 
 function jsonError(message: string, status: number): Response {

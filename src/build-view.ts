@@ -13,7 +13,7 @@
 
 import { mkdir, writeFile, copyFile } from "node:fs/promises";
 import { getSupabase } from "./db.js";
-import { US_STATES, REMOTE_PREF } from "./states.js";
+import { US_STATES, REMOTE_PREF, matchesLocationPref } from "./states.js";
 
 // Written to public/ (not data/) so it's safe to point a static host
 // directly at this one folder for deployment - data/ also holds
@@ -107,6 +107,54 @@ async function fetchAllPostings(supabase: ReturnType<typeof getSupabase>) {
   return postings;
 }
 
+// Location-preference picker needs a live count per option (2026-09-21) -
+// added after checking real coverage via a one-off SQL query and finding
+// it's wildly uneven (California: 787 live postings; Montana: 0). Without
+// showing that up front, a subscriber who narrows to a thin state has no
+// way to tell "the filter is working, there just isn't much here yet" from
+// "the filter is broken" - which is exactly the silent-cancellation risk
+// flagged when this was discussed. Computed fresh on every build from the
+// SAME matchesLocationPref() the real alert pipeline uses (not a hand-
+// rolled approximation), so the picker's counts can't drift out of sync
+// with what a subscriber would actually receive.
+//
+// Deliberately a separate, minimal query (location only) rather than
+// reusing fetchAllPostings' result - that query intentionally excludes
+// location entirely (see its own comment) since its output is the public,
+// paywall-safe dataset baked into the page. Aggregate counts-per-state are
+// fine to expose publicly (same as the "X open roles tracked" stat already
+// is); the individual posting rows this file already keeps free of
+// location are what actually matter to keep gated.
+async function fetchLocationCounts(supabase: ReturnType<typeof getSupabase>): Promise<{ counts: Record<string, number>; remote: number }> {
+  const locations: string[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("postings")
+      .select("location")
+      .or("is_internship.eq.true,is_entry_level.eq.true")
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) throw new Error(`build-view location-count fetch failed: ${error.message}`);
+
+    const page = data ?? [];
+    for (const row of page) {
+      if (row.location) locations.push(String(row.location));
+    }
+    if (page.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+
+  const counts: Record<string, number> = {};
+  for (const { abbr } of US_STATES) {
+    counts[abbr] = locations.filter((loc) => matchesLocationPref([abbr], loc)).length;
+  }
+  const remote = locations.filter((loc) => matchesLocationPref([REMOTE_PREF], loc)).length;
+
+  return { counts, remote };
+}
+
 async function main() {
   const supabase = getSupabase();
 
@@ -115,6 +163,9 @@ async function main() {
   console.log(
     `Pulled ${postings.length} posting(s): ${internshipCount} internship, ${postings.length - internshipCount} entry-level.`
   );
+
+  const { counts: locationCounts, remote: remoteCount } = await fetchLocationCounts(supabase);
+  console.log(`Computed location counts for the alert-preference picker (Remote: ${remoteCount}).`);
 
   // The signup panel writes straight to Supabase from the browser (see the
   // "anon can sign up" RLS policy in supabase/migrations/006_add_subscribers.sql)
@@ -134,7 +185,7 @@ async function main() {
 
   await mkdir(PUBLIC_DIR, { recursive: true });
 
-  const html = renderHtml(postings, supabaseUrl, supabaseAnonKey);
+  const html = renderHtml(postings, supabaseUrl, supabaseAnonKey, locationCounts, remoteCount);
   await writeFile(VIEW_PATH, html);
   console.log(`Wrote ${VIEW_PATH.pathname} — open it in your browser.`);
 
@@ -175,7 +226,9 @@ async function main() {
 function renderHtml(
   postings: Record<string, unknown>[],
   supabaseUrl: string | undefined,
-  supabaseAnonKey: string | undefined
+  supabaseAnonKey: string | undefined,
+  locationCounts: Record<string, number>,
+  remoteCount: number
 ): string {
   // categories is now an array per posting (a posting can belong to more
   // than one - see categorize.ts) - flatMap instead of map so a posting
@@ -184,6 +237,18 @@ function renderHtml(
   const categories = Array.from(
     new Set(postings.flatMap((p) => (Array.isArray(p.categories) && p.categories.length > 0 ? p.categories.map(String) : ["other"])))
   ).sort();
+
+  // Below this count, a subscriber narrowing to that option would likely go
+  // a while between alerts - not broken, just thin coverage right now. The
+  // picker flags these instead of silently letting someone pick a
+  // near-empty option and wonder why nothing arrives. Picked from the real
+  // distribution: most states sit at 15+, with a clear drop-off into a
+  // single-digit/low-teens cluster (Montana at 0) below that.
+  const LOW_COVERAGE_THRESHOLD = 15;
+  const locationOptions = [
+    { value: REMOTE_PREF, label: "Remote", count: remoteCount },
+    ...US_STATES.map((s) => ({ value: s.abbr, label: s.name, count: locationCounts[s.abbr] ?? 0 })),
+  ];
 
   return `<!doctype html>
 <html>
@@ -289,7 +354,19 @@ function renderHtml(
   }
   .loc-option { display: flex; align-items: center; gap: 0.4rem; padding: 0.15rem 0; cursor: pointer; }
   .loc-option input { width: auto; margin: 0; flex-shrink: 0; }
+  .loc-count { color: #999; font-size: 0.72rem; margin-left: auto; padding-left: 0.5rem; }
+  .loc-count.low { color: #b3261e; }
   .stage-picker { display: flex; gap: 1rem; margin-bottom: 0.9rem; font-size: 0.85rem; }
+
+  /* Pro sidebar "Getting alerts for" display - same labeled-row look as
+     the account page's .row/.row-label/.row-value (below), scaled down
+     to fit the narrower sidebar card. Replaces the old plain-text lines. */
+  .pref-row { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; padding: 0.4rem 0; border-bottom: 1px solid #f3f3f6; font-size: 0.83rem; }
+  .pref-row:last-of-type { border-bottom: none; }
+  .pref-label { color: #999; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; flex-shrink: 0; }
+  .pref-value { font-weight: 600; text-align: right; color: #222; }
+  .pref-section-label { font-size: 0.78rem; font-weight: 600; color: #444; margin-bottom: 0.35rem; }
+  .pref-section-hint { font-weight: 400; color: #999; text-transform: none; letter-spacing: normal; }
 
   .site-footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid #e8e8ec; color: #999; font-size: 0.78rem; text-align: center; }
 
@@ -464,19 +541,31 @@ function renderHtml(
     </div>
   </div>
   <div class="signup-card" id="proCard" style="display:none;">
-    <p class="signup-sub">Full listing unlocked — company, location, apply links, and real-time email alerts the moment a new posting matches your picks.</p>
+    <h2>Email me matches</h2>
     <div id="proCatsView">
-      <p class="pro-cats-list">Getting alerts for: <strong id="proCatsList"></strong></p>
-      <p class="pro-cats-list">Stage: <strong id="proStagesList"></strong></p>
-      <button type="button" class="link-btn" id="proCatsEditBtn">Edit preferences</button>
+      <div class="pref-row"><span class="pref-label">Categories</span><span class="pref-value" id="proCatsList"></span></div>
+      <div class="pref-row"><span class="pref-label">Stage</span><span class="pref-value" id="proStagesList"></span></div>
+      <div class="pref-row"><span class="pref-label">Location</span><span class="pref-value" id="proLocationList"></span></div>
+      <button type="button" class="link-btn" id="proCatsEditBtn" style="margin-top:0.7rem;">Edit preferences</button>
     </div>
     <div class="pro-cats-edit" id="proCatsEdit">
+      <div class="pref-section-label">Categories</div>
       <div class="category-picker" id="proCategoryPicker">
         ${categories.map((c) => `<button type="button" class="cat-pill" data-cat="${c}">${c}</button>`).join("\n        ")}
       </div>
-      <div class="category-picker" id="proStagePicker" style="margin-top: 0.6rem;">
+      <div class="pref-section-label">Stage</div>
+      <div class="category-picker" id="proStagePicker">
         <button type="button" class="cat-pill" data-stage="internship">Internship</button>
         <button type="button" class="cat-pill" data-stage="entry-level">Entry-level</button>
+      </div>
+      <div class="pref-section-label">Location <span class="pref-section-hint">(leave blank for any)</span></div>
+      <div class="location-picker" id="proLocationPicker">
+        ${locationOptions
+          .map(
+            (opt) =>
+              `<label class="loc-option"><input type="checkbox" data-loc="${opt.value}">${opt.label} <span class="loc-count${opt.count < LOW_COVERAGE_THRESHOLD ? " low" : ""}">(${opt.count})</span></label>`
+          )
+          .join("\n        ")}
       </div>
       <button id="proCatsSaveBtn" class="signup-btn">Save</button>
       <button type="button" class="link-btn" id="proCatsCancelBtn" style="display:block; margin: 0.6rem auto 0;">Cancel</button>
@@ -534,6 +623,7 @@ let isPro = false;
 let proLoginToken = null;
 let proCategories = [];
 let proStages = [];
+let proLocation = [];
 
 function currentData() { return (isPro && fullData) ? fullData : freeData; }
 
@@ -583,13 +673,23 @@ function formatStages(stages) {
   return stages.map(s => STAGE_LABELS[s] || s).join(' + ');
 }
 
+// Built from the same locationOptions the picker's checkboxes were rendered
+// from, so the label shown here can never drift from what's in the list.
+const LOCATION_LABELS = ${JSON.stringify(Object.fromEntries(locationOptions.map((o) => [o.value, o.label])))};
+function formatLocation(location) {
+  if (!location || location.length === 0) return 'Any location';
+  return location.map(v => LOCATION_LABELS[v] || v).join(', ');
+}
+
 function renderProCats() {
   document.getElementById('proCatsList').textContent = proCategories.length ? proCategories.join(', ') : '(none selected)';
   document.getElementById('proStagesList').textContent = formatStages(proStages);
+  document.getElementById('proLocationList').textContent = formatLocation(proLocation);
 }
 
 let proEditSelectedCats = [];
 let proEditSelectedStages = [];
+let proEditSelectedLocation = [];
 
 function renderProCatPicker() {
   document.querySelectorAll('#proCategoryPicker .cat-pill').forEach(btn => {
@@ -603,11 +703,19 @@ function renderProStagePicker() {
   });
 }
 
+function renderProLocationPicker() {
+  document.querySelectorAll('#proLocationPicker .loc-option input').forEach(input => {
+    input.checked = proEditSelectedLocation.includes(input.dataset.loc);
+  });
+}
+
 document.getElementById('proCatsEditBtn').addEventListener('click', () => {
   proEditSelectedCats = proCategories.slice();
   proEditSelectedStages = proStages.slice();
+  proEditSelectedLocation = proLocation.slice();
   renderProCatPicker();
   renderProStagePicker();
+  renderProLocationPicker();
   document.getElementById('proCatsMsg').textContent = '';
   document.getElementById('proCatsView').style.display = 'none';
   document.getElementById('proCatsEdit').classList.add('show');
@@ -644,6 +752,18 @@ document.querySelectorAll('#proStagePicker .cat-pill').forEach(btn => {
   });
 });
 
+document.querySelectorAll('#proLocationPicker .loc-option input').forEach(input => {
+  input.addEventListener('change', () => {
+    const loc = input.dataset.loc;
+    const idx = proEditSelectedLocation.indexOf(loc);
+    if (idx >= 0) {
+      proEditSelectedLocation.splice(idx, 1);
+    } else {
+      proEditSelectedLocation.push(loc);
+    }
+  });
+});
+
 document.getElementById('proCatsSaveBtn').addEventListener('click', async () => {
   const btn = document.getElementById('proCatsSaveBtn');
   const msgEl = document.getElementById('proCatsMsg');
@@ -663,7 +783,7 @@ document.getElementById('proCatsSaveBtn').addEventListener('click', async () => 
     const res = await fetch('/api/update-preferences', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ login: proLoginToken, categories: proEditSelectedCats, stages: proEditSelectedStages }),
+      body: JSON.stringify({ login: proLoginToken, categories: proEditSelectedCats, stages: proEditSelectedStages, location: proEditSelectedLocation }),
     });
     const responseBody = await res.json();
     if (!res.ok) throw new Error(responseBody.error || 'Could not save');
@@ -672,6 +792,7 @@ document.getElementById('proCatsSaveBtn').addEventListener('click', async () => 
     // immediately instead of silently masking a bug.
     proCategories = Array.isArray(responseBody.categories) ? responseBody.categories : proEditSelectedCats.slice();
     proStages = Array.isArray(responseBody.stages) ? responseBody.stages : proEditSelectedStages.slice();
+    proLocation = Array.isArray(responseBody.location) ? responseBody.location : proEditSelectedLocation.slice();
     renderProCats();
     document.getElementById('proCatsEdit').classList.remove('show');
     document.getElementById('proCatsView').style.display = '';
@@ -1137,6 +1258,7 @@ document.getElementById('requestNewLinkBtn').addEventListener('click', () => {
     proLoginToken = token;
     proCategories = Array.isArray(responseBody.categories) ? responseBody.categories : [];
     proStages = Array.isArray(responseBody.stages) && responseBody.stages.length ? responseBody.stages : ['internship', 'entry-level'];
+    proLocation = Array.isArray(responseBody.location) ? responseBody.location : [];
     document.getElementById('pendingBanner').classList.add('hide');
     document.getElementById('loadingCard').style.display = 'none';
     document.getElementById('unlockedBanner').classList.remove('hide');
