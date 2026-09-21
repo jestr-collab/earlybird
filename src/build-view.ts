@@ -262,10 +262,11 @@ function renderHtml(
   }
   .signup-btn:disabled { background: #99c2e8; cursor: default; }
   .agree-row {
-    display: flex; align-items: flex-start; gap: 0.45rem; font-size: 0.78rem; color: #666;
+    display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0.45rem; font-size: 0.78rem; color: #666;
     line-height: 1.35; margin: 0.6rem 0; cursor: pointer;
   }
   .agree-row input[type="checkbox"] { margin-top: 0.15rem; flex-shrink: 0; }
+  .agree-row span { flex: 1 1 auto; min-width: 0; }
   .agree-row a { color: #06c; }
   .signup-msg { font-size: 0.78rem; margin-top: 0.6rem; min-height: 1em; }
   .signup-msg.error { color: #b3261e; }
@@ -439,7 +440,7 @@ function renderHtml(
         ${categories.map((c) => `<button type="button" class="cat-pill" data-cat="${c}">${c}</button>`).join("\n        ")}
       </div>
       <input id="signupEmail" type="email" placeholder="you@school.edu">
-      <label class="agree-row"><input type="checkbox" id="signupAgree"> I agree to the <a href="/terms.html" target="_blank" onclick="event.stopPropagation()">Terms</a> and <a href="/privacy.html" target="_blank" onclick="event.stopPropagation()">Privacy Policy</a>.</label>
+      <label class="agree-row"><input type="checkbox" id="signupAgree"><span>I agree to the <a href="/terms.html" target="_blank" onclick="event.stopPropagation()">Terms</a> and <a href="/privacy.html" target="_blank" onclick="event.stopPropagation()">Privacy Policy</a>.</span></label>
       <button id="signupSubmit" class="signup-btn" disabled>Continue</button>
       <div id="signupMsg" class="signup-msg"></div>
     </div>
@@ -498,7 +499,7 @@ function renderHtml(
       <div class="plan-option" data-plan="monthly"><span class="plan-price">$19</span><span class="plan-period">per month</span></div>
       <div class="plan-option" data-plan="semester"><span class="plan-price">$49</span><span class="plan-period">per 3 months</span></div>
     </div>
-    <label class="agree-row"><input type="checkbox" id="modalAgree"> I agree to the <a href="/terms.html" target="_blank">Terms</a> and <a href="/privacy.html" target="_blank">Privacy Policy</a>.</label>
+    <label class="agree-row"><input type="checkbox" id="modalAgree"><span>I agree to the <a href="/terms.html" target="_blank">Terms</a> and <a href="/privacy.html" target="_blank">Privacy Policy</a>.</span></label>
     <button id="modalUpgradeBtn" class="upgrade-btn" disabled>Upgrade to Pro</button>
     <div id="modalMsg" class="signup-msg"></div>
   </div>
