@@ -361,10 +361,20 @@ function renderHtml(
      time without an awkward ctrl/cmd-click multi-select that doesn't work
      at all on mobile, exactly where most of this traffic lands). */
   .cat-filter-wrap { position: relative; flex: 1; min-width: 140px; }
+  /* A <button>, not an <input>/<select>, so it never picks up the global
+     "input, select { padding/border/border-radius }" rule above - without
+     matching those explicitly it renders with the browser's native button
+     chrome instead (different padding, a thicker/beveled default border,
+     different font rendering), which is exactly why it looked out of place
+     next to the search box and stage dropdown. appearance: none strips
+     that native chrome so the explicit styles below are all that apply. */
   .cat-filter-btn {
+    appearance: none; -webkit-appearance: none;
     width: 100%; text-align: left; background: #fff; cursor: pointer;
     font-family: inherit; font-size: 0.9rem; color: #333;
+    padding: 0.45rem 0.65rem; border: 1px solid #dcdce0; border-radius: 6px;
   }
+  .cat-filter-btn:focus { outline: none; border-color: #06c; }
   .cat-filter-panel {
     display: none; position: absolute; top: calc(100% + 4px); left: 0; z-index: 5;
     background: #fff; border: 1px solid #dcdce0; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.08);
