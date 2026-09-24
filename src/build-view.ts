@@ -13,7 +13,7 @@
 
 import { mkdir, writeFile, copyFile } from "node:fs/promises";
 import { getSupabase } from "./db.js";
-import { US_STATES, REMOTE_PREF, matchesLocationPref } from "./states.js";
+import { US_STATES, REMOTE_PREF, matchesLocationPref, CITY_STATE_HINTS } from "./states.js";
 
 // Written to public/ (not data/) so it's safe to point a static host
 // directly at this one folder for deployment - data/ also holds
@@ -953,6 +953,11 @@ function proRowHtml(p) {
 // US_STATES list states.ts/the Pro location picker use, so it can't drift
 // out of sync with what "CA" means elsewhere in this file.
 const STATE_ABBR_BY_NAME = ${JSON.stringify(Object.fromEntries(US_STATES.map((s) => [s.name.toLowerCase(), s.abbr])))};
+// Same bare-city fallback as states.ts's matchesOnePref (see its comment) -
+// kept in sync by being generated from the same CITY_STATE_HINTS constant,
+// so a city recognized for real alert matching is recognized here too.
+const CITY_STATE_HINTS = ${JSON.stringify(CITY_STATE_HINTS)};
+const ANY_STATE_ABBR_PATTERN = new RegExp('[,-]\\\\s*(' + Object.values(STATE_ABBR_BY_NAME).join('|') + ')\\\\b', 'i');
 function locationMatchesQuery(location, query) {
   if (!location) return false;
   const locLower = location.toLowerCase();
@@ -961,7 +966,14 @@ function locationMatchesQuery(location, query) {
   if (abbr) {
     // Same "abbreviation right after a comma or dash" signal states.ts
     // uses server-side for the real alert-matching logic.
-    return new RegExp('[,-]\\\\s*' + abbr + '\\\\b', 'i').test(location);
+    if (new RegExp('[,-]\\\\s*' + abbr + '\\\\b', 'i').test(location)) return true;
+    if (!ANY_STATE_ABBR_PATTERN.test(location)) {
+      for (const city in CITY_STATE_HINTS) {
+        if (CITY_STATE_HINTS[city] === abbr && new RegExp('\\\\b' + city.replace(/ /g, '\\\\s') + '\\\\b', 'i').test(location)) {
+          return true;
+        }
+      }
+    }
   }
   return false;
 }
