@@ -372,7 +372,13 @@ function renderHtml(
   }
   .cat-filter-panel.show { display: block; }
   .cat-filter-option { display: flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0; font-size: 0.85rem; cursor: pointer; white-space: nowrap; }
-  .cat-filter-option input { width: auto; margin: 0; flex-shrink: 0; }
+  /* flex: none + explicit width/min-width - this checkbox is still a
+     descendant of .controls, so without overriding all three it inherits
+     .controls input's "flex: 1; min-width: 140px" (meant for the
+     search/location text inputs) and grows to fill the row, which is what
+     was pushing the label text to the right edge by a different amount
+     per row instead of sitting right after the checkbox. */
+  .cat-filter-option input { flex: none; width: 14px; height: 14px; min-width: 0; margin: 0; }
   .loc-option { display: flex; align-items: center; gap: 0.4rem; padding: 0.15rem 0; cursor: pointer; }
   .loc-option input { width: auto; margin: 0; flex-shrink: 0; }
   .loc-count { color: #999; font-size: 0.72rem; margin-left: auto; padding-left: 0.5rem; }
