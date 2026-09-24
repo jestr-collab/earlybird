@@ -480,8 +480,23 @@ function renderHtml(
      specific container so other panels can use it too. */
   .link-btn { background: none; border: none; color: #06c; font-family: inherit; font-size: 0.78rem; cursor: pointer; padding: 0; text-decoration: underline; }
   .pro-cats-list { font-size: 0.82rem; color: #333; margin: 0 0 0.5rem; line-height: 1.4; }
-  .pro-cats-edit { display: none; margin-top: 0.6rem; }
-  .pro-cats-edit.show { display: block; }
+  /* Edit-preferences panel - a real popup (same .modal-overlay/.modal-card
+     treatment as the posting-click modal above), not an inline panel that
+     expands in place inside the sidebar. It used to just toggle open
+     there, which on mobile meant "Edit alerts"/"Edit preferences" landed
+     you at the very bottom of a page with thousands of postings above it -
+     technically reachable, but you then had to scroll all the way back up
+     to see the listing again. A popup needs no scroll position at all,
+     same reasoning as the posting modal's own comment. */
+  .pro-cats-edit {
+    display: none; position: fixed; inset: 0; background: rgba(20,20,25,0.45); z-index: 1000;
+    align-items: center; justify-content: center; padding: 1rem;
+  }
+  .pro-cats-edit.show { display: flex; }
+  .pro-cats-edit-inner {
+    background: #fff; border-radius: 12px; padding: 1.5rem; max-width: 340px; width: 100%; position: relative;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25); max-height: 90vh; overflow-y: auto;
+  }
 
   @media (max-width: 800px) {
     .layout { flex-direction: column; }
@@ -572,27 +587,30 @@ function renderHtml(
       <button type="button" class="link-btn" id="proCatsEditBtn" style="margin-top:0.7rem;">Edit preferences</button>
     </div>
     <div class="pro-cats-edit" id="proCatsEdit">
-      <div class="pref-section-label">Categories</div>
-      <div class="category-picker" id="proCategoryPicker">
-        ${categories.map((c) => `<button type="button" class="cat-pill" data-cat="${c}">${c}</button>`).join("\n        ")}
+      <div class="pro-cats-edit-inner">
+        <button type="button" class="modal-close" id="proCatsEditClose" aria-label="Close">&times;</button>
+        <div class="pref-section-label">Categories</div>
+        <div class="category-picker" id="proCategoryPicker">
+          ${categories.map((c) => `<button type="button" class="cat-pill" data-cat="${c}">${c}</button>`).join("\n          ")}
+        </div>
+        <div class="pref-section-label">Stage</div>
+        <div class="category-picker" id="proStagePicker">
+          <button type="button" class="cat-pill" data-stage="internship">Internship</button>
+          <button type="button" class="cat-pill" data-stage="entry-level">Entry-level</button>
+        </div>
+        <div class="pref-section-label">Location <span class="pref-section-hint">(leave blank for any)</span></div>
+        <div class="location-picker" id="proLocationPicker">
+          ${locationOptions
+            .map(
+              (opt) =>
+                `<label class="loc-option"><input type="checkbox" data-loc="${opt.value}">${opt.label} <span class="loc-count${opt.count < LOW_COVERAGE_THRESHOLD ? " low" : ""}">(${opt.count})</span></label>`
+            )
+            .join("\n          ")}
+        </div>
+        <button id="proCatsSaveBtn" class="signup-btn">Save</button>
+        <button type="button" class="link-btn" id="proCatsCancelBtn" style="display:block; margin: 0.6rem auto 0;">Cancel</button>
+        <div id="proCatsMsg" class="signup-msg"></div>
       </div>
-      <div class="pref-section-label">Stage</div>
-      <div class="category-picker" id="proStagePicker">
-        <button type="button" class="cat-pill" data-stage="internship">Internship</button>
-        <button type="button" class="cat-pill" data-stage="entry-level">Entry-level</button>
-      </div>
-      <div class="pref-section-label">Location <span class="pref-section-hint">(leave blank for any)</span></div>
-      <div class="location-picker" id="proLocationPicker">
-        ${locationOptions
-          .map(
-            (opt) =>
-              `<label class="loc-option"><input type="checkbox" data-loc="${opt.value}">${opt.label} <span class="loc-count${opt.count < LOW_COVERAGE_THRESHOLD ? " low" : ""}">(${opt.count})</span></label>`
-          )
-          .join("\n        ")}
-      </div>
-      <button id="proCatsSaveBtn" class="signup-btn">Save</button>
-      <button type="button" class="link-btn" id="proCatsCancelBtn" style="display:block; margin: 0.6rem auto 0;">Cancel</button>
-      <div id="proCatsMsg" class="signup-msg"></div>
     </div>
   </div>
 </aside>
@@ -744,9 +762,15 @@ document.getElementById('proCatsEditBtn').addEventListener('click', () => {
   document.getElementById('proCatsEdit').classList.add('show');
 });
 
-document.getElementById('proCatsCancelBtn').addEventListener('click', () => {
+function closeProCatsEdit() {
   document.getElementById('proCatsEdit').classList.remove('show');
   document.getElementById('proCatsView').style.display = '';
+}
+document.getElementById('proCatsCancelBtn').addEventListener('click', closeProCatsEdit);
+document.getElementById('proCatsEditClose').addEventListener('click', closeProCatsEdit);
+// Click-outside-to-close, same pattern as the posting modal below.
+document.getElementById('proCatsEdit').addEventListener('click', (e) => {
+  if (e.target.id === 'proCatsEdit') closeProCatsEdit();
 });
 
 document.querySelectorAll('#proCategoryPicker .cat-pill').forEach(btn => {
@@ -817,8 +841,7 @@ document.getElementById('proCatsSaveBtn').addEventListener('click', async () => 
     proStages = Array.isArray(responseBody.stages) ? responseBody.stages : proEditSelectedStages.slice();
     proLocation = Array.isArray(responseBody.location) ? responseBody.location : proEditSelectedLocation.slice();
     renderProCats();
-    document.getElementById('proCatsEdit').classList.remove('show');
-    document.getElementById('proCatsView').style.display = '';
+    closeProCatsEdit();
   } catch (err) {
     msgEl.textContent = err.message || 'Something went wrong - try again in a moment.';
   } finally {
@@ -1181,17 +1204,14 @@ document.getElementById('modalUpgradeBtn').addEventListener('click', async () =>
 });
 
 document.getElementById('modalClose').addEventListener('click', closePostingModal);
-// Pro subscribers reach the exact same "Edit preferences" panel this
+// Pro subscribers reach the exact same "Edit preferences" popup this
 // button always opened for free visitors, just relabeled and pointed at
-// proCard instead of the unlock pitch - without this, the only way to
-// reach it was scrolling the sidebar into view, which on mobile sits
-// below the entire listing (see .sidebar's @media rule / this button's
-// own CSS comment above) and is effectively unreachable once there are a
-// few thousand rows above it.
+// proCatsEditBtn instead of the unlock pitch - since that panel is a real
+// popup (see .pro-cats-edit's CSS comment), no scrolling is needed either
+// way, unlike when it used to expand inline inside the sidebar.
 document.getElementById('setAlertsLink').addEventListener('click', () => {
   if (isPro) {
     document.getElementById('proCatsEditBtn').click();
-    document.getElementById('proCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
   } else {
     openPostingModal();
   }
