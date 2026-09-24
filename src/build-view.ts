@@ -300,8 +300,11 @@ function renderHtml(
      flow, not just the sidebar. On mobile the sidebar sits below every
      single posting (see .sidebar's @media rule) - with 5,000+ rows above
      it, "scroll to the sidebar" is not a realistic path to conversion on a
-     phone. Hidden once someone's already Pro (initAuth() below) since
-     they already have alerts set up. */
+     phone. Relabeled to "Edit alerts" once someone's already Pro
+     (initAuth() below), not hidden - a subscriber granted Pro access
+     directly (no checkout, e.g. a manual comp) never goes through the
+     normal signup picker, so this stays their only reachable way to set
+     categories/stage/location without scrolling past the whole listing. */
   .set-alerts-link {
     background: none; border: none; color: #06c; font-family: inherit; font-size: 0.85rem;
     cursor: pointer; padding: 0; text-decoration: underline; white-space: nowrap;
@@ -352,6 +355,24 @@ function renderHtml(
     max-height: 130px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px;
     padding: 0.4rem 0.6rem; margin-bottom: 0.6rem; font-size: 0.8rem;
   }
+
+  /* Main listing's category filter - a dropdown of checkboxes rather than
+     a native <select> (which only ever allows picking one option at a
+     time without an awkward ctrl/cmd-click multi-select that doesn't work
+     at all on mobile, exactly where most of this traffic lands). */
+  .cat-filter-wrap { position: relative; flex: 1; min-width: 140px; }
+  .cat-filter-btn {
+    width: 100%; text-align: left; background: #fff; cursor: pointer;
+    font-family: inherit; font-size: 0.9rem; color: #333;
+  }
+  .cat-filter-panel {
+    display: none; position: absolute; top: calc(100% + 4px); left: 0; z-index: 5;
+    background: #fff; border: 1px solid #dcdce0; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    padding: 0.4rem 0.6rem; max-height: 220px; overflow-y: auto; min-width: 180px;
+  }
+  .cat-filter-panel.show { display: block; }
+  .cat-filter-option { display: flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0; font-size: 0.85rem; cursor: pointer; white-space: nowrap; }
+  .cat-filter-option input { width: auto; margin: 0; flex-shrink: 0; }
   .loc-option { display: flex; align-items: center; gap: 0.4rem; padding: 0.15rem 0; cursor: pointer; }
   .loc-option input { width: auto; margin: 0; flex-shrink: 0; }
   .loc-count { color: #999; font-size: 0.72rem; margin-left: auto; padding-left: 0.5rem; }
@@ -493,10 +514,12 @@ function renderHtml(
     <option value="internship">Internship only</option>
     <option value="entry-level">Entry-level only</option>
   </select>
-  <select id="catFilter">
-    <option value="">All categories</option>
-    ${categories.map((c) => `<option value="${c}">${c}</option>`).join("\n    ")}
-  </select>
+  <div class="cat-filter-wrap" id="catFilterWrap">
+    <button type="button" id="catFilterBtn" class="cat-filter-btn">All categories &#9662;</button>
+    <div class="cat-filter-panel" id="catFilterPanel">
+      ${categories.map((c) => `<label class="cat-filter-option"><input type="checkbox" data-cat="${c}">${c}</label>`).join("\n      ")}
+    </div>
+  </div>
 </div>
 <div class="count-row">
   <div id="count"></div>
@@ -885,18 +908,38 @@ function proRowHtml(p) {
   \`;
 }
 
+// Lets typing a full state name ("California") match postings listed by
+// city ("Glendale, CA") - plain substring search alone missed this since
+// "california" never appears in "glendale, ca". Built from the same
+// US_STATES list states.ts/the Pro location picker use, so it can't drift
+// out of sync with what "CA" means elsewhere in this file.
+const STATE_ABBR_BY_NAME = ${JSON.stringify(Object.fromEntries(US_STATES.map((s) => [s.name.toLowerCase(), s.abbr])))};
+function locationMatchesQuery(location, query) {
+  if (!location) return false;
+  const locLower = location.toLowerCase();
+  if (locLower.includes(query)) return true;
+  const abbr = STATE_ABBR_BY_NAME[query.trim()];
+  if (abbr) {
+    // Same "abbreviation right after a comma or dash" signal states.ts
+    // uses server-side for the real alert-matching logic.
+    return new RegExp('[,-]\\\\s*' + abbr + '\\\\b', 'i').test(location);
+  }
+  return false;
+}
+
+let selectedCatFilters = [];
+
 function render() {
   const q = document.getElementById('search').value.toLowerCase();
   const loc = document.getElementById('locationFilter').value.toLowerCase();
-  const cat = document.getElementById('catFilter').value;
   const stage = document.getElementById('stageFilter').value;
   const filtered = currentData().filter(p => {
     const matchesQ = !q || p.title.toLowerCase().includes(q) || (isPro && p.company_name && p.company_name.toLowerCase().includes(q));
     // Location filtering only makes sense once Pro data (which includes
     // location) is loaded - a free visitor never sees this control (it's
     // display:none until isPro flips true in initAuth()).
-    const matchesLoc = !isPro || !loc || (p.location && p.location.toLowerCase().includes(loc));
-    const matchesCat = !cat || (p.categories && p.categories.includes(cat));
+    const matchesLoc = !isPro || !loc || locationMatchesQuery(p.location, loc);
+    const matchesCat = selectedCatFilters.length === 0 || (p.categories && p.categories.some(c => selectedCatFilters.includes(c)));
     const postingStage = p.is_internship ? 'internship' : 'entry-level';
     const matchesStage = !stage || postingStage === stage;
     return matchesQ && matchesLoc && matchesCat && matchesStage;
@@ -908,8 +951,43 @@ function render() {
 
 document.getElementById('search').addEventListener('input', render);
 document.getElementById('locationFilter').addEventListener('input', render);
-document.getElementById('catFilter').addEventListener('change', render);
 document.getElementById('stageFilter').addEventListener('change', render);
+
+function updateCatFilterBtnLabel() {
+  const btn = document.getElementById('catFilterBtn');
+  if (selectedCatFilters.length === 0) {
+    btn.textContent = 'All categories ▾';
+  } else if (selectedCatFilters.length === 1) {
+    btn.textContent = selectedCatFilters[0] + ' ▾';
+  } else {
+    btn.textContent = selectedCatFilters.length + ' categories ▾';
+  }
+}
+
+document.getElementById('catFilterBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('catFilterPanel').classList.toggle('show');
+});
+document.querySelectorAll('#catFilterPanel input[type="checkbox"]').forEach(cb => {
+  cb.addEventListener('change', () => {
+    const c = cb.dataset.cat;
+    const idx = selectedCatFilters.indexOf(c);
+    if (cb.checked && idx < 0) selectedCatFilters.push(c);
+    if (!cb.checked && idx >= 0) selectedCatFilters.splice(idx, 1);
+    updateCatFilterBtnLabel();
+    render();
+  });
+});
+// Close the category dropdown on an outside click, same pattern as any
+// other lightweight popover - without this it'd stay open until the next
+// unrelated click happened to land inside catFilterWrap.
+document.addEventListener('click', (e) => {
+  const wrap = document.getElementById('catFilterWrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('catFilterPanel').classList.remove('show');
+  }
+});
+
 render();
 
 // --- Pre-payment category picker -------------------------------------
@@ -1103,7 +1181,21 @@ document.getElementById('modalUpgradeBtn').addEventListener('click', async () =>
 });
 
 document.getElementById('modalClose').addEventListener('click', closePostingModal);
-document.getElementById('setAlertsLink').addEventListener('click', openPostingModal);
+// Pro subscribers reach the exact same "Edit preferences" panel this
+// button always opened for free visitors, just relabeled and pointed at
+// proCard instead of the unlock pitch - without this, the only way to
+// reach it was scrolling the sidebar into view, which on mobile sits
+// below the entire listing (see .sidebar's @media rule / this button's
+// own CSS comment above) and is effectively unreachable once there are a
+// few thousand rows above it.
+document.getElementById('setAlertsLink').addEventListener('click', () => {
+  if (isPro) {
+    document.getElementById('proCatsEditBtn').click();
+    document.getElementById('proCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else {
+    openPostingModal();
+  }
+});
 document.getElementById('postingModal').addEventListener('click', (e) => {
   if (e.target.id === 'postingModal') closePostingModal();
 });
@@ -1266,7 +1358,7 @@ document.getElementById('requestNewLinkBtn').addEventListener('click', () => {
     document.getElementById('proCard').style.display = '';
     document.getElementById('accountLink').style.display = '';
     document.getElementById('signInLink').style.display = 'none';
-    document.getElementById('setAlertsLink').style.display = 'none';
+    document.getElementById('setAlertsLink').textContent = 'Edit alerts';
     renderProCats();
     document.getElementById('stats').textContent = fullData.length.toLocaleString() + ' open roles tracked, updated continuously';
     render();
