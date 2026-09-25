@@ -577,7 +577,7 @@ function renderHtml(
     </div>
     <div class="signup-gated" id="signupGated">
       <h3>Unlock full access</h3>
-      <p>Full posting details and real-time alerts are part of Pro.</p>
+      <p>Full posting details and real-time alerts are part of Pro. <strong>Start with a free 14-day trial</strong> - cancel anytime before it ends and you won't be charged.</p>
       <div class="plan-picker" id="planPicker">
         <div class="plan-option selected" data-plan="monthly"><span class="plan-price">$19</span><span class="plan-period">per month</span></div>
         <div class="plan-option" data-plan="semester"><span class="plan-price">$49</span><span class="plan-period">per 3 months</span></div>
@@ -636,7 +636,7 @@ function renderHtml(
   <div class="modal-card">
     <button type="button" class="modal-close" id="modalClose" aria-label="Close">&times;</button>
     <h3>Unlock full access</h3>
-    <p>Company, location, the apply link, and real-time email alerts the moment a new posting matches your picks are part of Pro.</p>
+    <p>Company, location, the apply link, and real-time email alerts the moment a new posting matches your picks are part of Pro. <strong>Start with a free 14-day trial</strong> - cancel anytime before it ends and you won't be charged.</p>
     <div class="category-picker" id="modalCategoryPicker">
       ${categories.map((c) => `<button type="button" class="cat-pill" data-cat="${c}">${c}</button>`).join("\n      ")}
     </div>

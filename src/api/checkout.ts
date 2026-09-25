@@ -63,6 +63,11 @@ export async function handleCreateCheckoutSession(request: Request, env: Env): P
       payment_method_types: ["card"],
       customer_email: email,
       line_items: [{ price: priceId, quantity: 1 }],
+      // 2-week free trial before the card is charged - webhook.ts already
+      // treats subscription.status === "trialing" as is_paid: true (see
+      // handleCheckoutCompleted), so a trialing subscriber gets full Pro
+      // access immediately, no other code needed for this to work end to end.
+      subscription_data: { trial_period_days: 14 },
       success_url: `${siteUrl}/app.html?checkout=success`,
       cancel_url: `${siteUrl}/app.html?checkout=cancelled`,
       metadata: { plan },
