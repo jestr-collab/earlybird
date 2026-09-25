@@ -577,11 +577,12 @@ function renderHtml(
     </div>
     <div class="signup-gated" id="signupGated">
       <h3>Unlock full access</h3>
-      <p>Full posting details and real-time alerts are part of Pro. <strong>Start with a free 14-day trial</strong> - cancel anytime before it ends and you won't be charged.</p>
+      <p>Full posting details and real-time alerts are part of Pro.</p>
       <div class="plan-picker" id="planPicker">
         <div class="plan-option selected" data-plan="monthly"><span class="plan-price">$19</span><span class="plan-period">per month</span></div>
         <div class="plan-option" data-plan="semester"><span class="plan-price">$49</span><span class="plan-period">per 3 months</span></div>
       </div>
+      <input id="signupCode" type="text" placeholder="Have a code? (optional)" style="text-transform:uppercase;">
       <button id="upgradeBtn" class="upgrade-btn">Upgrade to Pro</button>
       <div id="upgradeMsg" class="signup-msg"></div>
     </div>
@@ -636,7 +637,7 @@ function renderHtml(
   <div class="modal-card">
     <button type="button" class="modal-close" id="modalClose" aria-label="Close">&times;</button>
     <h3>Unlock full access</h3>
-    <p>Company, location, the apply link, and real-time email alerts the moment a new posting matches your picks are part of Pro. <strong>Start with a free 14-day trial</strong> - cancel anytime before it ends and you won't be charged.</p>
+    <p>Company, location, the apply link, and real-time email alerts the moment a new posting matches your picks are part of Pro.</p>
     <div class="category-picker" id="modalCategoryPicker">
       ${categories.map((c) => `<button type="button" class="cat-pill" data-cat="${c}">${c}</button>`).join("\n      ")}
     </div>
@@ -645,6 +646,7 @@ function renderHtml(
       <div class="plan-option" data-plan="monthly"><span class="plan-price">$19</span><span class="plan-period">per month</span></div>
       <div class="plan-option" data-plan="semester"><span class="plan-price">$49</span><span class="plan-period">per 3 months</span></div>
     </div>
+    <input id="modalCode" type="text" placeholder="Have a code? (optional)" style="text-transform:uppercase;">
     <label class="agree-row"><input type="checkbox" id="modalAgree"><span>I agree to the <a href="/terms.html" target="_blank">Terms</a> and <a href="/privacy.html" target="_blank">Privacy Policy</a>.</span></label>
     <button id="modalUpgradeBtn" class="upgrade-btn" disabled>Upgrade to Pro</button>
     <div id="modalMsg" class="signup-msg"></div>
@@ -1163,7 +1165,7 @@ document.getElementById('signupSubmit').addEventListener('click', async () => {
 // Shared by both the sidebar's upgradeBtn and the posting-click modal's
 // modalUpgradeBtn - same request, just reading the email from whichever
 // panel the visitor actually used.
-async function startCheckout(email, plan, btn, msgEl) {
+async function startCheckout(email, plan, btn, msgEl, code) {
   msgEl.className = 'signup-msg error';
   if (!email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
     msgEl.textContent = 'Enter a valid email first.';
@@ -1179,7 +1181,7 @@ async function startCheckout(email, plan, btn, msgEl) {
     const res = await fetch('/api/create-checkout-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, plan }),
+      body: JSON.stringify({ email, plan, code: code || undefined }),
     });
     const responseBody = await res.json();
     if (!res.ok || !responseBody.url) {
@@ -1194,7 +1196,8 @@ async function startCheckout(email, plan, btn, msgEl) {
 }
 
 document.getElementById('upgradeBtn').addEventListener('click', () => {
-  startCheckout(pendingEmail, selectedPlan, document.getElementById('upgradeBtn'), document.getElementById('upgradeMsg'));
+  const code = document.getElementById('signupCode').value.trim();
+  startCheckout(pendingEmail, selectedPlan, document.getElementById('upgradeBtn'), document.getElementById('upgradeMsg'), code);
 });
 
 document.getElementById('modalUpgradeBtn').addEventListener('click', async () => {
@@ -1229,7 +1232,8 @@ document.getElementById('modalUpgradeBtn').addEventListener('click', async () =>
     } catch (err) { /* non-fatal - see signupSubmit's comment above */ }
   }
 
-  startCheckout(email, selectedPlan, document.getElementById('modalUpgradeBtn'), msgEl);
+  const code = document.getElementById('modalCode').value.trim();
+  startCheckout(email, selectedPlan, document.getElementById('modalUpgradeBtn'), msgEl, code);
 });
 
 document.getElementById('modalClose').addEventListener('click', closePostingModal);

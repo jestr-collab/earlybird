@@ -20,11 +20,20 @@ export interface Env {
   STRIPE_PRICE_MONTHLY: string;
   STRIPE_PRICE_SEMESTER: string;
   SITE_URL?: string;
+  // Comma-separated list of codes that unlock the 14-day free trial (e.g.
+  // "ANNIE14,CAREERCENTER"). No trial by default - a visitor with no code,
+  // or an unrecognized one, goes straight to a normal paid subscription
+  // (card charged immediately). This is deliberately NOT the same thing as
+  // Stripe's built-in promotion codes (which only apply price discounts) -
+  // set/change these in the Cloudflare Worker's environment variables, not
+  // in the Stripe Dashboard.
+  TRIAL_CODES?: string;
 }
 
 interface CheckoutRequestBody {
   email: string;
   plan: "monthly" | "semester";
+  code?: string;
 }
 
 export async function handleCreateCheckoutSession(request: Request, env: Env): Promise<Response> {
@@ -35,13 +44,21 @@ export async function handleCreateCheckoutSession(request: Request, env: Env): P
     return jsonError("Invalid request body", 400);
   }
 
-  const { email, plan } = body;
+  const { email, plan, code } = body;
   if (!email || !isValidEmail(email)) {
     return jsonError("A valid email is required", 400);
   }
   if (plan !== "monthly" && plan !== "semester") {
     return jsonError('plan must be "monthly" or "semester"', 400);
   }
+
+  // Hard paywall by default (charged immediately) - the 14-day trial is
+  // opt-in only, via a recognized code. See Env.TRIAL_CODES above.
+  const validCodes = (env.TRIAL_CODES || "")
+    .split(",")
+    .map((c) => c.trim().toUpperCase())
+    .filter(Boolean);
+  const hasTrialCode = !!code && validCodes.includes(code.trim().toUpperCase());
 
   const priceId = plan === "monthly" ? env.STRIPE_PRICE_MONTHLY : env.STRIPE_PRICE_SEMESTER;
   if (!priceId) {
@@ -63,16 +80,12 @@ export async function handleCreateCheckoutSession(request: Request, env: Env): P
       payment_method_types: ["card"],
       customer_email: email,
       line_items: [{ price: priceId, quantity: 1 }],
-      // Shows Stripe's own "Add promotion code" field on the hosted
-      // Checkout page - no custom UI/API needed here. Codes themselves are
-      // created in the Stripe Dashboard (Product catalog -> Coupons ->
-      // create a Promotion Code), not in this codebase.
-      allow_promotion_codes: true,
-      // 2-week free trial before the card is charged - webhook.ts already
-      // treats subscription.status === "trialing" as is_paid: true (see
-      // handleCheckoutCompleted), so a trialing subscriber gets full Pro
-      // access immediately, no other code needed for this to work end to end.
-      subscription_data: { trial_period_days: 14 },
+      // Only present when a valid trial code was entered - otherwise this
+      // is a normal subscription, charged immediately (hard paywall).
+      // webhook.ts already treats subscription.status === "trialing" as
+      // is_paid: true (see handleCheckoutCompleted), so a trialing
+      // subscriber still gets full Pro access right away when this IS set.
+      ...(hasTrialCode ? { subscription_data: { trial_period_days: 14 } } : {}),
       success_url: `${siteUrl}/app.html?checkout=success`,
       cancel_url: `${siteUrl}/app.html?checkout=cancelled`,
       metadata: { plan },
