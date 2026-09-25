@@ -659,6 +659,7 @@ function renderHtml(
     <input id="signInEmail" type="email" placeholder="you@school.edu">
     <button id="signInSubmitBtn" class="signup-btn">Email me my link</button>
     <div id="signInMsg" class="signup-msg"></div>
+    <p style="text-align:center; margin-top:1rem; font-size:0.85rem; color:#666;">New here? <a href="#" id="signInGoToSignup">Sign up</a> for a free 14-day trial.</p>
   </div>
 </div>
 
@@ -1267,6 +1268,14 @@ document.getElementById('signInLink').addEventListener('click', openSignInModal)
 document.getElementById('signInModalClose').addEventListener('click', closeSignInModal);
 document.getElementById('signInModal').addEventListener('click', (e) => {
   if (e.target.id === 'signInModal') closeSignInModal();
+});
+// "New here? Sign up" inside the sign-in modal - routes to the same
+// category-picker + plan-picker + trial flow as the locked-posting modal,
+// rather than building a second signup form from scratch.
+document.getElementById('signInGoToSignup').addEventListener('click', (e) => {
+  e.preventDefault();
+  closeSignInModal();
+  openPostingModal();
 });
 document.getElementById('signInSubmitBtn').addEventListener('click', async () => {
   const btn = document.getElementById('signInSubmitBtn');

@@ -63,6 +63,11 @@ export async function handleCreateCheckoutSession(request: Request, env: Env): P
       payment_method_types: ["card"],
       customer_email: email,
       line_items: [{ price: priceId, quantity: 1 }],
+      // Shows Stripe's own "Add promotion code" field on the hosted
+      // Checkout page - no custom UI/API needed here. Codes themselves are
+      // created in the Stripe Dashboard (Product catalog -> Coupons ->
+      // create a Promotion Code), not in this codebase.
+      allow_promotion_codes: true,
       // 2-week free trial before the card is charged - webhook.ts already
       // treats subscription.status === "trialing" as is_paid: true (see
       // handleCheckoutCompleted), so a trialing subscriber gets full Pro
