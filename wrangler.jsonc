@@ -39,6 +39,13 @@
     // /api/request-login) was throwing "supabaseUrl is required." at
     // runtime. Not a secret - this is just the project's public REST API
     // base URL, safe to commit.
-    "SUPABASE_URL": "https://dlonxlehlnazmidzkcuf.supabase.co"
+    "SUPABASE_URL": "https://dlonxlehlnazmidzkcuf.supabase.co",
+    // Comma-separated codes that unlock the 14-day free trial in
+    // /api/create-checkout-session (see checkout.ts) - anyone checking out
+    // without one of these is charged immediately, no trial. Same
+    // "dashboard vars don't reliably reach the Worker" reasoning as the
+    // other vars here - add new codes by editing this list and pushing,
+    // not via the Cloudflare dashboard.
+    "TRIAL_CODES": "CPP20"
   }
 }
