@@ -13,7 +13,7 @@
 import "dotenv/config";
 import { Resend } from "resend";
 
-const FROM_ADDRESS = process.env.ALERTS_FROM_EMAIL || "earlybird <onboarding@resend.dev>";
+const FROM_ADDRESS = process.env.ALERTS_FROM_EMAIL || "earlybird <alerts@earlybirdcareer.com>";
 
 async function main() {
   const to = process.argv[2];

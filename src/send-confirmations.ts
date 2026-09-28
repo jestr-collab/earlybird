@@ -32,7 +32,7 @@ interface UnconfirmedSubscriber {
   confirm_token: string;
 }
 
-const FROM_ADDRESS = process.env.ALERTS_FROM_EMAIL || "earlybird <onboarding@resend.dev>";
+const FROM_ADDRESS = process.env.ALERTS_FROM_EMAIL || "earlybird <alerts@earlybirdcareer.com>";
 const SITE_URL = (process.env.SITE_URL || "https://earlybirdcareer.com").replace(/\/+$/, "");
 
 function renderConfirmEmail(confirmUrl: string): string {

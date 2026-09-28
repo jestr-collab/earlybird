@@ -98,7 +98,7 @@ async function sendLoginLinkEmail(email: string, loginToken: string, env: Env): 
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "earlybird <onboarding@resend.dev>",
+        from: "earlybird <alerts@earlybirdcareer.com>",
         to: email,
         subject: "Your earlybird Pro login link",
         html: `<p>Here's your link to the full earlybird listing: <a href="${loginUrl}">${loginUrl}</a></p><p>This link works for 30 days.</p>`,

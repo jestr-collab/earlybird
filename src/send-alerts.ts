@@ -52,7 +52,7 @@ function matchesStagePref(stages: string[], posting: TaggedPosting): boolean {
 // delivers to the account's own verified email. Fine for initial testing,
 // not fine for real subscribers - see the setup notes in README/this
 // session's chat.
-const FROM_ADDRESS = process.env.ALERTS_FROM_EMAIL || "earlybird <onboarding@resend.dev>";
+const FROM_ADDRESS = process.env.ALERTS_FROM_EMAIL || "earlybird <alerts@earlybirdcareer.com>";
 
 // Same base URL reasoning as send-confirmations.ts - where unsubscribe.html
 // (built by build-view.ts alongside view.html/confirm.html) is actually
