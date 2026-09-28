@@ -658,8 +658,11 @@ function renderHtml(
     <button type="button" class="modal-close" id="signInModalClose" aria-label="Close">&times;</button>
     <h3 id="signInTitle">Sign in</h3>
     <p id="signInIntro">Enter the email you subscribed with and we'll send you a link to unlock the full listing.</p>
-    <input id="signInEmail" type="email" placeholder="you@school.edu">
-    <button id="signInSubmitBtn" class="signup-btn">Email me my link</button>
+    <p id="signInResendPrompt" style="display:none; text-align:center; font-size:0.85rem; color:#666;">Didn't get it within a minute? <a href="#" id="signInShowResend">Resend the link</a></p>
+    <div id="signInForm">
+      <input id="signInEmail" type="email" placeholder="you@school.edu">
+      <button id="signInSubmitBtn" class="signup-btn">Email me my link</button>
+    </div>
     <div id="signInMsg" class="signup-msg"></div>
     <p style="text-align:center; margin-top:1rem; font-size:0.85rem; color:#666;">New here? <a href="#" id="signInGoToSignup">Sign up</a> for a free 14-day trial.</p>
   </div>
@@ -1260,15 +1263,34 @@ document.addEventListener('keydown', (e) => {
 // no free-tier signup pitch/category picker in the way. Same
 // /api/request-login endpoint as the sidebar's "Already a subscriber?" box -
 // just a more direct entry point for someone who's already paying.
+// justPaid=true: webhook.ts already auto-emailed a login link the moment
+// Stripe's checkout.session.completed fired (see handleCheckoutCompleted),
+// so this must NOT default to an active "enter your email" form - every
+// submit of that form calls /api/request-login, which overwrites the
+// subscriber's login_token with a fresh one, silently invalidating
+// whichever link is still sitting unclicked in their inbox. Real-data catch
+// (2026-09-28): showing the form immediately made it trivially easy to
+// re-request a link seconds after the real one arrived and kill it before
+// it was ever clicked. Passive "check your email" + an explicit "resend"
+// toggle means a second token only gets minted if the first genuinely
+// didn't show up, not by default.
 function openSignInModal(justPaid) {
   document.getElementById('signInTitle').textContent = justPaid ? "You're in!" : 'Sign in';
   document.getElementById('signInIntro').textContent = justPaid
-    ? "Payment received - enter your email below and we'll send your login link to unlock the full listing."
+    ? "Payment received - we've emailed your login link to unlock the full listing. It can take a minute to arrive."
     : "Enter the email you subscribed with and we'll send you a link to unlock the full listing.";
+  document.getElementById('signInForm').style.display = justPaid ? 'none' : '';
+  document.getElementById('signInResendPrompt').style.display = justPaid ? '' : 'none';
   document.getElementById('signInModal').classList.add('show');
   document.getElementById('signInMsg').textContent = '';
-  document.getElementById('signInEmail').focus();
+  if (!justPaid) document.getElementById('signInEmail').focus();
 }
+document.getElementById('signInShowResend').addEventListener('click', (e) => {
+  e.preventDefault();
+  document.getElementById('signInResendPrompt').style.display = 'none';
+  document.getElementById('signInForm').style.display = '';
+  document.getElementById('signInEmail').focus();
+});
 function closeSignInModal() {
   document.getElementById('signInModal').classList.remove('show');
 }
