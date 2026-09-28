@@ -656,8 +656,8 @@ function renderHtml(
 <div class="modal-overlay" id="signInModal">
   <div class="modal-card">
     <button type="button" class="modal-close" id="signInModalClose" aria-label="Close">&times;</button>
-    <h3>Sign in</h3>
-    <p>Enter the email you subscribed with and we'll send you a link to unlock the full listing.</p>
+    <h3 id="signInTitle">Sign in</h3>
+    <p id="signInIntro">Enter the email you subscribed with and we'll send you a link to unlock the full listing.</p>
     <input id="signInEmail" type="email" placeholder="you@school.edu">
     <button id="signInSubmitBtn" class="signup-btn">Email me my link</button>
     <div id="signInMsg" class="signup-msg"></div>
@@ -1260,7 +1260,11 @@ document.addEventListener('keydown', (e) => {
 // no free-tier signup pitch/category picker in the way. Same
 // /api/request-login endpoint as the sidebar's "Already a subscriber?" box -
 // just a more direct entry point for someone who's already paying.
-function openSignInModal() {
+function openSignInModal(justPaid) {
+  document.getElementById('signInTitle').textContent = justPaid ? "You're in!" : 'Sign in';
+  document.getElementById('signInIntro').textContent = justPaid
+    ? "Payment received - enter your email below and we'll send your login link to unlock the full listing."
+    : "Enter the email you subscribed with and we'll send you a link to unlock the full listing.";
   document.getElementById('signInModal').classList.add('show');
   document.getElementById('signInMsg').textContent = '';
   document.getElementById('signInEmail').focus();
@@ -1369,10 +1373,19 @@ document.getElementById('requestNewLinkBtn').addEventListener('click', () => {
   // Landing page's "Sign in" link sends people here as /app.html?signin=1 -
   // open the sign-in modal directly rather than making them find it again.
   const wantsSignIn = params.has('signin');
+  // Stripe's success_url (see checkout.ts) has no login token on it - the
+  // token only exists once the webhook fires and emails it (see
+  // webhook.ts). Without this, someone landing back here right after paying
+  // just sees the same "pay to unlock" card, which reads as "did my payment
+  // fail?" - real-data catch (2026-09-28). Route them straight to the
+  // sign-in modal, with copy that explains why (payment received, link's on
+  // its way) instead of the generic "sign in" framing.
+  const justPaid = params.get('checkout') === 'success';
 
-  if (token || wantsSignIn) {
+  if (token || wantsSignIn || justPaid) {
     params.delete('login');
     params.delete('signin');
+    params.delete('checkout');
     const cleanQuery = params.toString();
     window.history.replaceState({}, '', window.location.pathname + (cleanQuery ? '?' + cleanQuery : ''));
   }
@@ -1384,7 +1397,8 @@ document.getElementById('requestNewLinkBtn').addEventListener('click', () => {
   }
 
   if (!token) {
-    if (wantsSignIn) openSignInModal();
+    if (justPaid) openSignInModal(true);
+    else if (wantsSignIn) openSignInModal(false);
     return;
   }
 
