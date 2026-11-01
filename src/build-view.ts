@@ -251,12 +251,17 @@ function renderHtml(
   ];
 
   return `<!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>earlybird — internship &amp; new-grad alerts</title>
-<meta name="description" content="New internship and entry-level postings from company career pages, surfaced within hours of going live.">
+<title>Internship &amp; Entry-Level Job Alerts | earlybird</title>
+<meta name="description" content="Browse new internship and entry-level postings from 1,500+ company career pages, surfaced within hours of going live - before they're buried on LinkedIn.">
+<link rel="canonical" href="https://earlybirdcareer.com/app.html">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://earlybirdcareer.com/app.html">
+<meta property="og:title" content="Internship &amp; Entry-Level Job Alerts | earlybird">
+<meta property="og:description" content="Browse new internship and entry-level postings from 1,500+ company career pages, surfaced within hours of going live.">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   /* NOTE: intentionally not touching .row/.title/.company/.tags/.cat/.stage/
@@ -1483,10 +1488,11 @@ document.getElementById('requestNewLinkBtn').addEventListener('click', () => {
 // arbitrary subscriber rows.
 function renderConfirmHtml(supabaseUrl: string | undefined, supabaseAnonKey: string | undefined): string {
   return `<!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
 <title>Confirm your earlybird alerts</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -1554,10 +1560,11 @@ main();
 // unsubscribe someone who never even opened the email.
 function renderUnsubscribeHtml(supabaseUrl: string | undefined, supabaseAnonKey: string | undefined): string {
   return `<!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
 <title>Unsubscribe from earlybird alerts</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -1631,10 +1638,11 @@ document.getElementById('unsubBtn').addEventListener('click', async () => {
 // someone clicks "Manage plan & billing").
 function renderAccountHtml(): string {
   return `<!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
 <title>Your account — earlybird</title>
 <style>
   * { box-sizing: border-box; }
