@@ -71,6 +71,12 @@ const ROBOTS_SRC = new URL("../static/robots.txt", import.meta.url);
 const ROBOTS_PATH = new URL("../public/robots.txt", import.meta.url);
 const SITEMAP_SRC = new URL("../static/sitemap.xml", import.meta.url);
 const SITEMAP_PATH = new URL("../public/sitemap.xml", import.meta.url);
+// Social-share preview image (2026-11-01) - referenced by every page's
+// og:image/twitter:image tag below. Binary file, same copy-not-render
+// pattern as the other static/ assets above (copyFile works fine on
+// binary files too, not just text).
+const OG_IMAGE_SRC = new URL("../static/og-image.png", import.meta.url);
+const OG_IMAGE_PATH = new URL("../public/og-image.png", import.meta.url);
 
 // Real-data catch (2026-09-13): this used to be a single query with
 // .limit(1000) - which felt generous when it was written, but company
@@ -231,6 +237,10 @@ async function main() {
   await copyFile(SITEMAP_SRC, SITEMAP_PATH);
   console.log(`Wrote ${SITEMAP_PATH.pathname} (copied from static/sitemap.xml).`);
 
+  // Social-share preview image - see OG_IMAGE_SRC's comment above.
+  await copyFile(OG_IMAGE_SRC, OG_IMAGE_PATH);
+  console.log(`Wrote ${OG_IMAGE_PATH.pathname} (copied from static/og-image.png).`);
+
   // The other half of the double opt-in flow (see send-confirmations.ts):
   // the link in that email points at <SITE_URL>/confirm.html, so this file
   // needs to be deployed alongside view.html wherever that ends up hosted.
@@ -291,6 +301,9 @@ function renderHtml(
 <meta property="og:url" content="https://earlybirdcareer.com/app.html">
 <meta property="og:title" content="Internship &amp; Entry-Level Job Alerts | earlybird">
 <meta property="og:description" content="Browse new internship and entry-level postings from 1,500+ company career pages, surfaced within hours of going live.">
+<meta property="og:image" content="https://earlybirdcareer.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://earlybirdcareer.com/og-image.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   /* NOTE: intentionally not touching .row/.title/.company/.tags/.cat/.stage/
