@@ -52,6 +52,14 @@ const TERMS_SRC = new URL("../static/terms.html", import.meta.url);
 const TERMS_PATH = new URL("../public/terms.html", import.meta.url);
 const PRIVACY_SRC = new URL("../static/privacy.html", import.meta.url);
 const PRIVACY_PATH = new URL("../public/privacy.html", import.meta.url);
+// SEO content page (2026-11-01) - targets "how to get an internship" and
+// related searches, which neither the landing page (pitches the product)
+// nor app.html (the tool itself) can rank for on their own - Google ranks
+// pages that answer the query, not product pages. Same hand-authored-static
+// pattern as landing/terms/privacy above: edit static/guide.html directly,
+// never public/guide.html.
+const GUIDE_SRC = new URL("../static/guide.html", import.meta.url);
+const GUIDE_PATH = new URL("../public/guide.html", import.meta.url);
 
 // Real-data catch (2026-09-13): this used to be a single query with
 // .limit(1000) - which felt generous when it was written, but company
@@ -201,6 +209,10 @@ async function main() {
   console.log(`Wrote ${TERMS_PATH.pathname} (copied from static/terms.html).`);
   await copyFile(PRIVACY_SRC, PRIVACY_PATH);
   console.log(`Wrote ${PRIVACY_PATH.pathname} (copied from static/privacy.html).`);
+
+  // SEO guide page - see GUIDE_SRC's comment above.
+  await copyFile(GUIDE_SRC, GUIDE_PATH);
+  console.log(`Wrote ${GUIDE_PATH.pathname} (copied from static/guide.html).`);
 
   // The other half of the double opt-in flow (see send-confirmations.ts):
   // the link in that email points at <SITE_URL>/confirm.html, so this file
@@ -673,7 +685,7 @@ function renderHtml(
   </div>
 </div>
 
-<footer class="site-footer">earlybird — built for students hunting for their next internship. · <a href="/terms.html">Terms</a> · <a href="/privacy.html">Privacy</a></footer>
+<footer class="site-footer">earlybird — built for students hunting for their next internship. · <a href="/guide.html">How to Get an Internship</a> · <a href="/terms.html">Terms</a> · <a href="/privacy.html">Privacy</a></footer>
 
 <script>
 // Real paywall (2026-09-18): "data" baked in here is already the free-safe
