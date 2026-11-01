@@ -77,6 +77,18 @@ const SITEMAP_PATH = new URL("../public/sitemap.xml", import.meta.url);
 // binary files too, not just text).
 const OG_IMAGE_SRC = new URL("../static/og-image.png", import.meta.url);
 const OG_IMAGE_PATH = new URL("../public/og-image.png", import.meta.url);
+// Favicon set (2026-11-01) - there was no favicon anywhere in this project
+// before, which is why Google Search and every browser tab showed a blank/
+// generic icon instead of the bird logo. favicon.ico is the one browsers
+// and search engines fall back to by convention even without a <link> tag,
+// but every page below still references all three explicitly since that
+// fallback isn't guaranteed everywhere.
+const FAVICON_ICO_SRC = new URL("../static/favicon.ico", import.meta.url);
+const FAVICON_ICO_PATH = new URL("../public/favicon.ico", import.meta.url);
+const FAVICON_32_SRC = new URL("../static/favicon-32.png", import.meta.url);
+const FAVICON_32_PATH = new URL("../public/favicon-32.png", import.meta.url);
+const APPLE_ICON_SRC = new URL("../static/apple-touch-icon.png", import.meta.url);
+const APPLE_ICON_PATH = new URL("../public/apple-touch-icon.png", import.meta.url);
 
 // Real-data catch (2026-09-13): this used to be a single query with
 // .limit(1000) - which felt generous when it was written, but company
@@ -241,6 +253,12 @@ async function main() {
   await copyFile(OG_IMAGE_SRC, OG_IMAGE_PATH);
   console.log(`Wrote ${OG_IMAGE_PATH.pathname} (copied from static/og-image.png).`);
 
+  // Favicon set - see FAVICON_ICO_SRC's comment above.
+  await copyFile(FAVICON_ICO_SRC, FAVICON_ICO_PATH);
+  await copyFile(FAVICON_32_SRC, FAVICON_32_PATH);
+  await copyFile(APPLE_ICON_SRC, APPLE_ICON_PATH);
+  console.log(`Wrote favicon.ico, favicon-32.png, apple-touch-icon.png (copied from static/).`);
+
   // The other half of the double opt-in flow (see send-confirmations.ts):
   // the link in that email points at <SITE_URL>/confirm.html, so this file
   // needs to be deployed alongside view.html wherever that ends up hosted.
@@ -294,6 +312,9 @@ function renderHtml(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/favicon-32.png" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>Internship &amp; Entry-Level Job Alerts | earlybird</title>
 <meta name="description" content="Browse new internship and entry-level postings from 1,500+ company career pages, surfaced within hours of going live - before they're buried on LinkedIn.">
 <link rel="canonical" href="https://earlybirdcareer.com/app.html">
@@ -1534,6 +1555,9 @@ function renderConfirmHtml(supabaseUrl: string | undefined, supabaseAnonKey: str
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/favicon-32.png" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="robots" content="noindex">
 <title>Confirm your earlybird alerts</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1606,6 +1630,9 @@ function renderUnsubscribeHtml(supabaseUrl: string | undefined, supabaseAnonKey:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/favicon-32.png" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="robots" content="noindex">
 <title>Unsubscribe from earlybird alerts</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1684,6 +1711,9 @@ function renderAccountHtml(): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/favicon-32.png" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="robots" content="noindex">
 <title>Your account — earlybird</title>
 <style>
