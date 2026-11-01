@@ -60,6 +60,17 @@ const PRIVACY_PATH = new URL("../public/privacy.html", import.meta.url);
 // never public/guide.html.
 const GUIDE_SRC = new URL("../static/guide.html", import.meta.url);
 const GUIDE_PATH = new URL("../public/guide.html", import.meta.url);
+// Tells crawlers what to index and where the sitemap lives (2026-11-01) -
+// neither existed before, which doesn't block indexing outright but makes
+// discovery slower/less efficient, and left the noindex pages (confirm/
+// unsubscribe/account - see their <meta name="robots"> tags above) with no
+// matching Disallow for crawlers that don't fetch every page's HTML before
+// deciding whether to crawl it. Same hand-authored-static pattern as the
+// other files above.
+const ROBOTS_SRC = new URL("../static/robots.txt", import.meta.url);
+const ROBOTS_PATH = new URL("../public/robots.txt", import.meta.url);
+const SITEMAP_SRC = new URL("../static/sitemap.xml", import.meta.url);
+const SITEMAP_PATH = new URL("../public/sitemap.xml", import.meta.url);
 
 // Real-data catch (2026-09-13): this used to be a single query with
 // .limit(1000) - which felt generous when it was written, but company
@@ -213,6 +224,12 @@ async function main() {
   // SEO guide page - see GUIDE_SRC's comment above.
   await copyFile(GUIDE_SRC, GUIDE_PATH);
   console.log(`Wrote ${GUIDE_PATH.pathname} (copied from static/guide.html).`);
+
+  // robots.txt + sitemap.xml - see ROBOTS_SRC's comment above.
+  await copyFile(ROBOTS_SRC, ROBOTS_PATH);
+  console.log(`Wrote ${ROBOTS_PATH.pathname} (copied from static/robots.txt).`);
+  await copyFile(SITEMAP_SRC, SITEMAP_PATH);
+  console.log(`Wrote ${SITEMAP_PATH.pathname} (copied from static/sitemap.xml).`);
 
   // The other half of the double opt-in flow (see send-confirmations.ts):
   // the link in that email points at <SITE_URL>/confirm.html, so this file

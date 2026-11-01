@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /confirm.html
+Disallow: /unsubscribe.html
+Disallow: /account.html
+
+Sitemap: https://earlybirdcareer.com/sitemap.xml
